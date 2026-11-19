@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import { useEffect, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Check, ChevronDown, Eye, EyeOff, Camera, UserRound } from 'lucide-react-native';
@@ -12,6 +13,7 @@ import { loadAccountProfile, saveAccountProfile, uploadAccountPhoto, deleteAccou
 import { Country, COUNTRIES, DEFAULT_COUNTRY, findCountryByName, findCountryByDialCode } from '../data/countries';
 import { CountryPickerModal } from './CountryPickerModal';
 import { PhoneInput } from './PhoneInput';
+import { controls } from '../lib/theme';
 
 type Colors = {
   background: string; surface: string; text: string; muted: string;
@@ -57,6 +59,7 @@ export function AuthFlow({ colors }: Props) {
   const [restoreRevision, setRestoreRevision] = useState(0);
   const restoredRevision = useRef(-1);
   const [busy, setBusy] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [otp, setOtp] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -146,7 +149,13 @@ export function AuthFlow({ colors }: Props) {
   const toggle = (value: string, values: string[], update: (items: string[]) => void) => {
     update(values.includes(value) ? values.filter(item => item !== value) : [...values, value]);
   };
-  const go = (next: Screen) => { setError(''); setNotice(''); setShowPassword(false); setScreen(next); };
+  const go = (next: Screen) => {
+    setError('');
+    setNotice('');
+    setShowPassword(false);
+    setFocusedField(null);
+    setScreen(next);
+  };
   const validate = () => {
     if (screen === 'register' && !name.trim()) { setError('Indiquez votre nom d’affichage.'); return false; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Saisissez une adresse e-mail valide.'); return false; }
@@ -204,39 +213,65 @@ export function AuthFlow({ colors }: Props) {
   });
 
   const button = (title: string, onPress: () => void, compact = false) => (
-    <Pressable accessibilityRole="button" onPress={onPress} disabled={busy} accessibilityState={{ disabled: busy, busy }} style={[styles.buttonTouch, compact && styles.buttonTouchCompact]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      disabled={busy}
+      accessibilityState={{ disabled: busy, busy }}
+      style={({ pressed }) => [styles.buttonTouch, compact && styles.buttonTouchCompact, pressed && styles.pressed]}
+    >
       <View style={[styles.button, { backgroundColor: colors.action }]}>
         {busy ? <ActivityIndicator color={colors.onAction} /> : <Text style={[styles.buttonText, { color: colors.onAction }]}>{title}</Text>}
       </View>
     </Pressable>
   );
   const link = (title: string, onPress: () => void, variant: 'action' | 'critical' = 'action') => (
-    <Pressable accessibilityRole="button" onPress={onPress} disabled={busy} style={styles.linkTouch}>
+    <Pressable accessibilityRole="button" onPress={onPress} disabled={busy} style={({ pressed }) => [styles.linkTouch, pressed && styles.pressed]}>
       <Text style={[styles.link, { color: variant === 'critical' ? (colors.critical || '#B42318') : colors.action }]}>{title}</Text>
     </Pressable>
   );
+  const focusProps = (label: string) => ({
+    onFocus: () => setFocusedField(label),
+    onBlur: () => setFocusedField(current => current === label ? null : current),
+  });
+  const fieldSurface = (label: string) => ({
+    backgroundColor: colors.surface,
+    borderColor: focusedField === label ? colors.action : colors.border,
+  });
   const field = (label: string, value: string, change: (v: string) => void, props: TextInputProps = {}) => (
     <View style={styles.field}>
       <Text style={[styles.label, heading]}>{label}</Text>
       <TextInput
         {...props}
+        {...focusProps(label)}
         editable={!busy && props.editable !== false}
         value={value}
         onChangeText={change}
         accessibilityLabel={label}
         placeholderTextColor={colors.muted}
         underlineColorAndroid="transparent"
-        style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+        style={[styles.input, fieldSurface(label), { color: colors.text }]}
       />
     </View>
   );
   const secretField = (label: string, value: string, change: (value: string) => void, autoComplete: 'current-password' | 'new-password') => (
     <View style={styles.field}>
       <Text style={[styles.label, heading]}>{label}</Text>
-      <View style={[styles.passwordField, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <TextInput accessibilityLabel={label} value={value} onChangeText={change} editable={!busy} secureTextEntry={!showPassword} autoComplete={autoComplete} underlineColorAndroid="transparent" style={[styles.passwordInput, { color: colors.text }]} />
-        <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer les mots de passe' : 'Afficher les mots de passe'} onPress={() => setShowPassword(value => !value)} style={styles.eye}>
-          {showPassword ? <EyeOff size={22} color={colors.action} /> : <Eye size={22} color={colors.action} />}
+      <View style={[styles.passwordField, fieldSurface(label)]}>
+        <TextInput
+          {...focusProps(label)}
+          accessibilityLabel={label}
+          value={value}
+          onChangeText={change}
+          editable={!busy}
+          secureTextEntry={!showPassword}
+          autoComplete={autoComplete}
+          underlineColorAndroid="transparent"
+          style={[styles.passwordInput, { color: colors.text }]}
+        />
+        <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer les mots de passe' : 'Afficher les mots de passe'} onPress={() => setShowPassword(value => !value)} style={({ pressed }) => [styles.eye, pressed && styles.pressed]}>
+          {showPassword ? <EyeOff size={22} color={colors.action} strokeWidth={controls.iconStroke} /> : <Eye size={22} color={colors.action} strokeWidth={controls.iconStroke} />}
         </Pressable>
       </View>
     </View>
@@ -384,6 +419,8 @@ export function AuthFlow({ colors }: Props) {
   if (screen === 'home') {
     return (
       <HomeScreen
+        key={session?.user.id}
+        readerId={session?.user.id ?? 'device'}
         onSignOut={signOut}
         onChangePassword={() => { setPassword(''); setCurrentPassword(''); go('change-password'); }}
         onEditProfile={() => { setStep(0); go('onboarding'); }}
@@ -422,14 +459,15 @@ export function AuthFlow({ colors }: Props) {
               <View style={styles.logoBacking}>
                 <Image source={require('../assets/logo-koinonia.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="Koinonia" />
               </View>
-              <Text style={[styles.title, heading]}>{screen === 'register' ? 'Créer un compte' : 'Connexion'}</Text>
+              <Text accessibilityRole="header" textBreakStrategy="balanced" style={[styles.title, heading]}>{screen === 'register' ? 'Créer un compte' : 'Connexion'}</Text>
               <Text style={[styles.intro, body]}>{screen === 'register' ? 'Rejoignez votre communauté de foi.' : 'Connectez-vous à votre compte.'}</Text>
               {screen === 'register' && field('Nom d’affichage', name, setName, { autoCapitalize: 'words', autoComplete: 'name', placeholder: 'Votre nom' })}
               {field('Adresse e-mail', email, setEmail, { autoCapitalize: 'none', keyboardType: 'email-address', autoComplete: 'email', placeholder: 'vous@exemple.com' })}
               <View style={styles.field}>
                 <Text style={[styles.label, heading]}>Mot de passe</Text>
-                <View style={[styles.passwordField, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.passwordField, fieldSurface('Mot de passe')]}>
                   <TextInput
+                    {...focusProps('Mot de passe')}
                     accessibilityLabel="Mot de passe"
                     editable={!busy}
                     value={password}
@@ -441,8 +479,8 @@ export function AuthFlow({ colors }: Props) {
                     placeholderTextColor={colors.muted}
                     style={[styles.passwordInput, { color: colors.text }]}
                   />
-                  <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} onPress={() => setShowPassword(!showPassword)} style={styles.eye}>
-                    {showPassword ? <EyeOff size={22} color={colors.action} /> : <Eye size={22} color={colors.action} />}
+                  <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} onPress={() => setShowPassword(!showPassword)} style={({ pressed }) => [styles.eye, pressed && styles.pressed]}>
+                    {showPassword ? <EyeOff size={22} color={colors.action} strokeWidth={controls.iconStroke} /> : <Eye size={22} color={colors.action} strokeWidth={controls.iconStroke} />}
                   </Pressable>
                 </View>
                 {screen === 'register' && <Text style={[styles.hint, body]}>8 caractères minimum.</Text>}
@@ -635,6 +673,7 @@ const styles = StyleSheet.create({
   buttonTouch: { marginTop: 28, width: '100%' },
   button: { minHeight: 54, borderRadius: 12, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 },
   buttonText: { fontFamily: 'Montserrat_600SemiBold', fontSize: 15, textAlign: 'center' },
+  pressed: { opacity: controls.pressedOpacity },
   linkTouch: { minHeight: 48, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
   link: { fontFamily: 'Montserrat_600SemiBold', fontSize: 14, textAlign: 'center' },
   onboarding: { width: '100%', maxWidth: 480, alignSelf: 'center', flex: 1 },
@@ -646,7 +685,7 @@ const styles = StyleSheet.create({
   hint: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 19, marginTop: 8 },
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 8 },
   photo: { width: 64, height: 64, borderRadius: 32, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  photoImage: { width: '100%', height: '100%', borderRadius: 44 },
+  photoImage: { width: '100%', height: '100%', borderRadius: 31 },
   photoBadge: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   photoDetails: { alignItems: 'flex-start' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },

@@ -40,7 +40,7 @@ import {
   dailyFeaturedBreakfast,
   BreakfastItem,
 } from '../data/breakfasts';
-import { fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, homeTheme as c } from '../lib/theme';
 
 type Props = {
   onBack?: () => void;
@@ -580,6 +580,7 @@ export function BreakfastsScreen({
                   key={category}
                   accessibilityRole="button"
                   accessibilityLabel={`Thème ${category}`}
+                  accessibilityState={{ selected }}
                   onPress={() => setSelectedTag(category)}
                   style={({ pressed }) => [
                     s.categoryChip,
@@ -639,6 +640,8 @@ export function BreakfastsScreen({
 
                   <Text
                     accessibilityRole="header"
+                    textBreakStrategy="balanced"
+                    lineBreakStrategyIOS="push-out"
                     style={[s.heroTitle, compact && { fontSize: 24, lineHeight: 30 }]}
                   >
                     {dailyFeaturedBreakfast.title}
@@ -812,6 +815,7 @@ const s = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 16,
   },
   titleBlock: {
@@ -835,9 +839,9 @@ const s = StyleSheet.create({
     gap: 8,
   },
   iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: controls.touchSize,
+    height: controls.touchSize,
+    borderRadius: 24,
     backgroundColor: c.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -856,25 +860,23 @@ const s = StyleSheet.create({
   },
   modeTab: {
     flex: 1,
-    height: 42,
+    minHeight: controls.touchSize,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
     gap: 8,
+    padding: 8,
   },
   modeTabActive: {
     backgroundColor: c.action,
-    shadowColor: c.action,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
   },
   modeTabLabel: {
     fontFamily: fonts.medium,
     fontSize: 14,
     color: c.muted,
+    textAlign: 'center',
   },
   modeTabLabelActive: {
     color: '#FFFFFF',
@@ -889,6 +891,8 @@ const s = StyleSheet.create({
     gap: 8,
   },
   categoryChip: {
+    minHeight: controls.touchSize,
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -1058,6 +1062,9 @@ const s = StyleSheet.create({
   thumbnailImage: {
     width: '100%',
     height: '100%',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: controls.photoOutline,
+    borderRadius: 12,
   },
   thumbBadge: {
     position: 'absolute',
@@ -1231,6 +1238,7 @@ const s = StyleSheet.create({
   videoTimer: {
     fontFamily: fonts.medium,
     fontSize: 12,
+    fontVariant: ['tabular-nums'],
     color: '#FFFFFF',
   },
   videoProgressTrack: {
@@ -1473,7 +1481,6 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   pressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.98 }],
+    opacity: controls.pressedOpacity,
   },
 });

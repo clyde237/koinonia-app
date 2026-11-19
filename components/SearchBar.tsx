@@ -9,7 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Search, X } from 'lucide-react-native';
-import { fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, homeTheme as c } from '../lib/theme';
 
 export type SearchBarProps = {
   value: string;
@@ -50,7 +50,7 @@ export function SearchBar({
         <Search
           size={19}
           color={focused ? c.action : c.muted}
-          strokeWidth={focused ? 2 : 1.75}
+          strokeWidth={controls.iconStroke}
         />
       </View>
 
@@ -61,13 +61,14 @@ export function SearchBar({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         placeholder={placeholder}
-        placeholderTextColor="#8C9CAE"
+        placeholderTextColor={c.muted}
+        selectionColor={c.action}
         autoFocus={autoFocus}
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
         clearButtonMode="never" // On gère le bouton clear personnalisé pour cohérence multi-plateforme
-        accessibilityLabel="Barre de recherche des Breakfasts"
+        accessibilityLabel={placeholder}
         style={s.input}
       />
 
@@ -76,11 +77,10 @@ export function SearchBar({
           accessibilityRole="button"
           accessibilityLabel="Effacer la recherche"
           onPress={handleClear}
-          hitSlop={8}
           style={({ pressed }) => [s.clearButton, pressed && s.pressed]}
         >
           <View style={s.clearCircle}>
-            <X size={14} color="#FFFFFF" strokeWidth={2.2} />
+            <X size={15} color={c.action} strokeWidth={controls.iconStroke} />
           </View>
         </Pressable>
       )}
@@ -90,13 +90,14 @@ export function SearchBar({
 
 const s = StyleSheet.create({
   container: {
-    height: 50,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: c.surface,
     borderRadius: 25,
-    paddingHorizontal: 14,
-    borderWidth: 1.5,
+    paddingLeft: 14,
+    paddingRight: 1,
+    borderWidth: 2,
   },
   containerNormal: {
     borderColor: c.divider,
@@ -108,11 +109,6 @@ const s = StyleSheet.create({
   },
   containerFocused: {
     borderColor: c.action,
-    shadowColor: c.action,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 3,
   },
   iconWrapper: {
     marginRight: 10,
@@ -121,28 +117,28 @@ const s = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: '100%',
+    minHeight: controls.touchSize,
     fontFamily: fonts.body,
     fontSize: 15,
     color: c.text,
-    paddingVertical: 0,
+    paddingVertical: 8,
+    paddingRight: 12,
   },
   clearButton: {
-    padding: 6,
-    marginLeft: 6,
+    width: controls.touchSize,
+    height: controls.touchSize,
     justifyContent: 'center',
     alignItems: 'center',
   },
   clearCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#8C9CAE',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: c.mint,
     justifyContent: 'center',
     alignItems: 'center',
   },
   pressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.94 }],
+    opacity: controls.pressedOpacity,
   },
 });

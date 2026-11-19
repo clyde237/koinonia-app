@@ -24,7 +24,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { AppNotification, NotificationCategory } from '../data/notifications';
-import { fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, homeTheme as c } from '../lib/theme';
 
 type Props = {
   visible: boolean;
@@ -43,8 +43,9 @@ export function NotificationsMenu({
   onMarkAllAsRead,
   onOpenSettings,
 }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const top = insets.top + (height < 480 ? 8 : 54);
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const getCategoryIcon = (category: NotificationCategory) => {
@@ -74,19 +75,21 @@ export function NotificationsMenu({
       <View style={s.modalOverlay}>
         {/* Scrim to dismiss */}
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Fermer le menu des notifications"
+          accessible={false}
+          importantForAccessibility="no"
           onPress={onClose}
           style={s.scrim}
         />
 
         {/* Floating Contextual Menu Card anchored at top-right */}
         <View
+          accessibilityViewIsModal
           style={[
             s.menuCard,
             s.cardShadow,
             {
-              top: insets.top + 54,
+              top,
+              maxHeight: Math.min(520, height - top - Math.max(insets.bottom, 12)),
               width: Math.min(width - 24, 370),
               right: Math.max((width - Math.min(width - 24, 370)) / 2, 12),
             },
@@ -96,35 +99,31 @@ export function NotificationsMenu({
           <View style={s.menuHeader}>
             <View style={s.titleRow}>
               <Text accessibilityRole="header" style={s.menuTitle}>Notifications</Text>
-              {unreadCount > 0 ? (
-                <View style={s.unreadPill}>
-                  <Text style={s.unreadPillText}>{unreadCount} nouv.</Text>
-                </View>
-              ) : null}
-            </View>
-
-            <View style={s.headerActions}>
-              {unreadCount > 0 && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Tout marquer comme lu"
-                  onPress={onMarkAllAsRead}
-                  style={({ pressed }) => [s.markAllBtn, pressed && s.pressed]}
-                >
-                  <CheckCheck size={16} color={c.action} strokeWidth={2} />
-                  <Text style={s.markAllText}>Tout lire</Text>
-                </Pressable>
-              )}
-
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Fermer"
                 onPress={onClose}
                 style={({ pressed }) => [s.closeBtn, pressed && s.pressed]}
               >
-                <X size={18} color={c.muted} strokeWidth={1.8} />
+                <X size={20} color={c.muted} strokeWidth={controls.iconStroke} />
               </Pressable>
             </View>
+            {unreadCount > 0 && (
+              <View style={s.readActions}>
+                <Text accessibilityLiveRegion="polite" style={s.unreadCount}>
+                  {unreadCount === 1 ? '1 non lue' : `${unreadCount} non lues`}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Tout marquer comme lu"
+                  onPress={onMarkAllAsRead}
+                  style={({ pressed }) => [s.markAllBtn, pressed && s.pressed]}
+                >
+                  <CheckCheck size={18} color={c.action} strokeWidth={controls.iconStroke} />
+                  <Text style={s.markAllText}>Tout lire</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
 
           {/* Notifications Scroll List */}
@@ -167,13 +166,12 @@ export function NotificationsMenu({
                       <View style={s.notifTitleRow}>
                         <Text
                           style={[s.notifTitle, !item.read && s.notifTitleUnread]}
-                          numberOfLines={1}
                         >
                           {item.title}
                         </Text>
                         {!item.read && <View style={s.unreadDot} />}
                       </View>
-                      <Text style={s.notifMessage} numberOfLines={2}>
+                      <Text style={s.notifMessage}>
                         {item.message}
                       </Text>
                       <Text style={s.notifTime}>{item.time}</Text>
@@ -215,7 +213,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(17, 34, 30, 0.3)',
   },
   pressed: {
-    opacity: 0.75,
+    opacity: controls.pressedOpacity,
   },
   menuCard: {
     position: 'absolute',
@@ -223,7 +221,6 @@ const s = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: c.divider,
-    maxHeight: 460,
     overflow: 'hidden',
     zIndex: 999,
   },
@@ -237,64 +234,56 @@ const s = StyleSheet.create({
 
   /* Header */
   menuHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: c.divider,
     backgroundColor: c.canvas,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
   menuTitle: {
-    fontFamily: fonts.bold,
-    fontSize: 16,
+    flexShrink: 1,
+    fontFamily: fonts.heading,
+    fontSize: 18,
     color: c.text,
   },
-  unreadPill: {
-    backgroundColor: c.action,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 10,
+  unreadCount: {
+    flexShrink: 1,
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    color: c.muted,
   },
-  unreadPillText: {
-    fontFamily: fonts.bold,
-    fontSize: 10,
-    color: 'white',
-  },
-  headerActions: {
+  readActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
   markAllBtn: {
+    minHeight: controls.touchSize,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: c.mint,
   },
   markAllText: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
+    fontFamily: fonts.heading,
+    fontSize: 13,
     color: c.action,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: c.surface,
+    width: controls.touchSize,
+    height: controls.touchSize,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: c.divider,
   },
 
   /* Empty State */
@@ -327,7 +316,7 @@ const s = StyleSheet.create({
 
   /* List */
   notificationsList: {
-    maxHeight: 330,
+    flexShrink: 1,
   },
   listContent: {
     paddingVertical: 4,
@@ -343,8 +332,8 @@ const s = StyleSheet.create({
     backgroundColor: '#F3F9F8',
   },
   rowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F4F3',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: c.divider,
   },
   iconBox: {
     width: 36,
@@ -397,8 +386,8 @@ const s = StyleSheet.create({
   },
   notifTime: {
     fontFamily: fonts.medium,
-    fontSize: 10,
-    color: '#7E918E',
+    fontSize: 12,
+    color: c.muted,
   },
 
   /* Footer */

@@ -44,3 +44,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# temp and generated
+.impeccable/
+generated_images/

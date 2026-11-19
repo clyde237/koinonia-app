@@ -8,10 +8,9 @@ Application mobile spirituelle et communautaire développée avec **React Native
 - **Breakfasts du matin :** Découverte de messages inspirants, filtres par thématiques/formats (vidéo/texte), recherche instantanée intégrée, lecture immersive avec citation biblique.
 - **Groupes & Communautés :** Espaces d'échange et d'intercession chrétienne, discussions, filtres par catégories et participation active.
 - **La Bible (Louis Segond 1910) :**
-  - Navigation intuitive entre l'Ancien et le Nouveau Testament.
-  - Sélection rapide des livres et chapitres.
-  - Mise en page soignée, responsive et lisible avec numérotation des versets.
-  - Actions rapides au toucher (copier, partager, surligner).
+  - Texte intégral embarqué dans l’application. Le lecteur accède aux 66 livres, 1 189 chapitres et 31 170 versets sans requête au serveur.
+  - Navigation par livre et chapitre, recherche par mot ou référence, copie, partage et surlignage des versets.
+  - Le dernier chapitre, les surlignages et la taille de lecture sont enregistrés sur l’appareil pour le compte utilisé.
 - **Menu contextuel de notifications :** Dropdown flottant interactif avec distinction par catégories (Breakfasts, Groupes, Versets, Événements), statut de lecture, action « Tout lire » et navigation contextuelle directe.
 - **Réglages & Personnalisation :**
   - Gestion du profil utilisateur.
@@ -66,6 +65,16 @@ Scannez le QR code généré avec l'application Expo Go ou lancez sur émulateur
 ```bash
 npm run typecheck
 ```
+
+### Source de la Bible
+
+La base `assets/bible/fraLSG.db` est générée à partir de l’export SQL VPL de la [Louis Segond 1910 sur eBible.org](https://ebible.org/details.php?id=fraLSG), distribuée dans le domaine public. Pour la régénérer avec Python 3 et SQLite FTS5, depuis `koinonia-app` :
+
+```bash
+python3 scripts/import-bible.py ../fraLSG_vpl/fraLSG_vpl.sql
+```
+
+Les contrôles du corpus, des recherches et de la persistance locale s’exécutent avec `npm run test:bible` sous Node.js 22.13 ou ultérieur. Ils utilisent SQLite réel et remplacent le pont natif Expo par un adaptateur de test. La copie, le partage et le clavier demandent une vérification sur appareil.
 
 ---
 

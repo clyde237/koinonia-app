@@ -12,7 +12,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "expo": "~58.0.24",
+    "expo-asset": "~58.0.21",
     "expo-blur": "~58.0.6",
+    "expo-file-system": "~58.0.13",
     "expo-font": "^58.0.12",
     "expo-image-picker": "~58.0.10",
     "expo-linear-gradient": "~58.0.4",
@@ -44,7 +46,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:bible": "node --test --test-isolation=none tests/bible.test.cjs"
   },
   "private": true
 }

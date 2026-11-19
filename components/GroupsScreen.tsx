@@ -20,8 +20,8 @@ import {
   ArrowLeft,
   Bell,
   BellOff,
-  Check,
   ChevronRight,
+  Clock3,
   Info,
   Lock,
   MessageSquare,
@@ -39,7 +39,7 @@ import {
   type Community,
   type CommunityMessage,
 } from '../data/communities';
-import { fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, homeTheme as c } from '../lib/theme';
 
 type Props = {
   onBack?: () => void;
@@ -444,7 +444,7 @@ export function GroupsScreen({
               </View>
             ) : (
               <View style={[s.pendingBanner, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-                <ClockIcon size={18} color={c.action} />
+                <Clock3 size={18} color={c.action} strokeWidth={controls.iconStroke} />
                 <Text style={s.pendingBannerText}>
                   Votre demande est en cours de validation par les responsables.
                 </Text>
@@ -581,6 +581,7 @@ export function GroupsScreen({
                     key={category}
                     accessibilityRole="button"
                     accessibilityLabel={`Catégorie ${category}`}
+                    accessibilityState={{ selected }}
                     onPress={() => setSelectedCategory(category)}
                     style={({ pressed }) => [
                       s.categoryChip,
@@ -608,7 +609,7 @@ export function GroupsScreen({
               {/* Groupes actifs */}
               {myActiveGroups.length > 0 && (
                 <View style={s.sectionBlock}>
-                  <Text style={s.sectionHeaderTitle}>Groupes rejoints</Text>
+                  <Text accessibilityRole="header" style={s.sectionHeaderTitle}>Groupes rejoints</Text>
                   <View style={s.cardList}>
                     {myActiveGroups.map(group => (
                       <Pressable
@@ -622,7 +623,7 @@ export function GroupsScreen({
 
                         <View style={s.groupDetails}>
                           <View style={s.groupTitleRow}>
-                            <Text numberOfLines={1} style={s.groupName}>
+                            <Text textBreakStrategy="balanced" style={s.groupName}>
                               {group.name}
                             </Text>
                             {group.unreadCount > 0 && (
@@ -659,14 +660,14 @@ export function GroupsScreen({
               {/* Groupes en attente de validation */}
               {myPendingGroups.length > 0 && (
                 <View style={s.sectionBlock}>
-                  <Text style={s.sectionHeaderTitle}>Demandes en attente</Text>
+                  <Text accessibilityRole="header" style={s.sectionHeaderTitle}>Demandes en attente</Text>
                   <View style={s.cardList}>
                     {myPendingGroups.map(group => (
                       <View key={group.id} style={s.groupCardPending}>
                         <Image source={group.image} style={s.groupAvatar} resizeMode="cover" />
 
                         <View style={s.groupDetails}>
-                          <Text numberOfLines={1} style={s.groupName}>
+                          <Text textBreakStrategy="balanced" style={s.groupName}>
                             {group.name}
                           </Text>
                           <Text numberOfLines={2} style={s.groupDesc}>
@@ -674,8 +675,8 @@ export function GroupsScreen({
                           </Text>
 
                           <View style={s.pendingBadge}>
-                            <Check size={13} color={c.action} strokeWidth={2.5} />
-                            <Text style={s.pendingBadgeText}>Demande transmise</Text>
+                            <Clock3 size={14} color={c.amberText} strokeWidth={controls.iconStroke} />
+                            <Text style={s.pendingBadgeText}>En attente</Text>
                           </View>
                         </View>
                       </View>
@@ -779,14 +780,6 @@ export function GroupsScreen({
   );
 }
 
-function ClockIcon({ size, color }: { size: number; color: string }) {
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Users size={size} color={color} />
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   root: {
     flex: 1,
@@ -801,6 +794,7 @@ const s = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 16,
   },
   titleBlock: {
@@ -824,9 +818,9 @@ const s = StyleSheet.create({
     gap: 8,
   },
   iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: controls.touchSize,
+    height: controls.touchSize,
+    borderRadius: 24,
     backgroundColor: c.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -845,25 +839,23 @@ const s = StyleSheet.create({
   },
   modeTab: {
     flex: 1,
-    height: 42,
+    minHeight: controls.touchSize,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
     gap: 8,
+    padding: 8,
   },
   modeTabActive: {
     backgroundColor: c.action,
-    shadowColor: c.action,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
   },
   modeTabLabel: {
     fontFamily: fonts.medium,
     fontSize: 13,
     color: c.muted,
+    textAlign: 'center',
   },
   modeTabLabelActive: {
     color: '#FFFFFF',
@@ -878,6 +870,8 @@ const s = StyleSheet.create({
     gap: 8,
   },
   categoryChip: {
+    minHeight: controls.touchSize,
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -916,9 +910,9 @@ const s = StyleSheet.create({
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 12,
     backgroundColor: c.surface,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: c.divider,
     gap: 12,
@@ -926,9 +920,9 @@ const s = StyleSheet.create({
   groupCardPending: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 12,
     backgroundColor: '#F9F8F5',
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E6E0D4',
     gap: 12,
@@ -936,8 +930,10 @@ const s = StyleSheet.create({
   groupAvatar: {
     width: 58,
     height: 58,
-    borderRadius: 16,
+    borderRadius: 10,
     backgroundColor: '#1B293D',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: controls.photoOutline,
   },
   groupDetails: {
     flex: 1,
@@ -952,7 +948,7 @@ const s = StyleSheet.create({
     fontFamily: fonts.heading,
     fontSize: 16,
     color: c.text,
-    flex: 1,
+    flexShrink: 1,
   },
   unreadBadge: {
     backgroundColor: c.action,
@@ -964,6 +960,7 @@ const s = StyleSheet.create({
   unreadText: {
     fontFamily: fonts.heading,
     fontSize: 11,
+    fontVariant: ['tabular-nums'],
     color: '#FFFFFF',
   },
   groupDesc: {
@@ -974,6 +971,7 @@ const s = StyleSheet.create({
   },
   groupMetaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
     marginTop: 2,
@@ -998,15 +996,21 @@ const s = StyleSheet.create({
     color: '#6B4823',
   },
   pendingBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: c.amberSurface,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   pendingBadgeText: {
+    flexShrink: 1,
     fontFamily: fonts.medium,
     fontSize: 12,
-    color: c.action,
+    color: c.amberText,
   },
   // DISCOVER CARD
   discoverCard: {
@@ -1434,7 +1438,6 @@ const s = StyleSheet.create({
     color: c.action,
   },
   pressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.98 }],
+    opacity: controls.pressedOpacity,
   },
 });

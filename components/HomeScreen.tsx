@@ -16,15 +16,18 @@ import {
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { dailyBreakfast, homeCommunities, homeImages, recentBreakfasts, type Breakfast } from '../data/home';
-import { fonts, homeTheme as c } from '../lib/theme';
+import { DAILY_BIBLE_PASSAGE, type BiblePassage } from '../data/bible';
+import { loadBibleFontSize, saveBibleFontSize } from '../lib/bible-library';
+import { controls, fonts, homeTheme as c } from '../lib/theme';
 import { BreakfastsScreen } from './BreakfastsScreen';
 import { GroupsScreen } from './GroupsScreen';
-import { BibleScreen, FontSizeMode } from './BibleScreen';
+import { BIBLE_FONT_SIZES, BibleScreen, type FontSizeMode } from './BibleScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { NotificationsMenu } from './NotificationsMenu';
 import { INITIAL_NOTIFICATIONS, type AppNotification } from '../data/notifications';
 
 type Props = {
+  readerId: string;
   name: string;
   email?: string;
   phone?: string;
@@ -50,7 +53,7 @@ type Props = {
 type Sheet =
   | { kind: 'breakfast'; item: Breakfast; mode: 'read' | 'watch' }
   | { kind: 'community'; id: string }
-  | { kind: 'notifications' | 'profile' | 'breakfasts' | 'groups' | 'bible' | 'settings' | 'event' };
+  | { kind: 'notifications' | 'profile' | 'breakfasts' | 'groups' | 'settings' | 'event' };
 
 const tabs = [
   { id: 'home', label: 'Accueil', icon: Home },
@@ -60,11 +63,13 @@ const tabs = [
   { id: 'settings', label: 'Réglages', icon: Settings },
 ] as const;
 
-function SectionTitle({ children, action }: { children: ReactNode; action?: () => void }) {
+function SectionTitle({ children, action, actionLabel }: { children: ReactNode; action: () => void; actionLabel: string }) {
   return (
     <View style={s.sectionHeading}>
       <Text accessibilityRole="header" style={s.sectionTitle}>{children}</Text>
-      {action && <Pressable accessibilityRole="button" accessibilityLabel="Voir tous les Breakfasts" onPress={action} style={({ pressed }) => [s.textAction, pressed && s.pressed]}><Text style={s.link}>Tout voir</Text></Pressable>}
+      <Pressable accessibilityRole="button" accessibilityLabel={actionLabel} onPress={action} style={({ pressed }) => [s.textAction, pressed && s.pressed]}>
+        <Text style={s.link}>Tout voir</Text>
+      </Pressable>
     </View>
   );
 }
@@ -85,8 +90,12 @@ export function HomeScreen(props: Props) {
   const insets = useSafeAreaInsets();
   const compact = width < 370;
   const gutter = compact ? 16 : 20;
+  const navWidth = Math.min(width - (compact ? 16 : 2 * gutter), 560);
+  const stackHeroActions = fontScale > 1.35 || (width < 345 && fontScale > 1.1);
   const [currentScreen, setCurrentScreen] = useState<'home' | 'breakfasts' | 'groups' | 'bible' | 'settings'>('home');
   const [bibleFontSize, setBibleFontSize] = useState<FontSizeMode>('medium');
+  const [bibleOpening, setBibleOpening] = useState<{ revision: number; passage?: BiblePassage }>({ revision: 0 });
+  const bibleFontEdited = useRef(false);
   const [selectedBreakfastId, setSelectedBreakfastId] = useState<string | undefined>(undefined);
   const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>(undefined);
   const [breakfastInitialTab, setBreakfastInitialTab] = useState<'watch' | 'read'>('watch');
@@ -103,9 +112,39 @@ export function HomeScreen(props: Props) {
   const initials = props.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase() || 'K';
   const bottom = Math.max(insets.bottom, 12);
 
+  useEffect(() => {
+    let active = true;
+    bibleFontEdited.current = false;
+    loadBibleFontSize(props.readerId).then(size => {
+      if (active && !bibleFontEdited.current && size && Object.hasOwn(BIBLE_FONT_SIZES, size)) {
+        setBibleFontSize(size as FontSizeMode);
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [props.readerId]);
+
+  const changeBibleFontSize = (size: FontSizeMode) => {
+    bibleFontEdited.current = true;
+    setBibleFontSize(size);
+    saveBibleFontSize(props.readerId, size).catch(() => {
+      Alert.alert('Préférence indisponible', 'La taille de lecture n’a pas pu être enregistrée sur cet appareil.');
+    });
+  };
+
+  const openBible = (passage?: BiblePassage) => {
+    if (passage || currentScreen !== 'bible') {
+      setBibleOpening(previous => ({ passage, revision: previous.revision + 1 }));
+    }
+    setCurrentScreen('bible');
+  };
+
   const handleSelectNotification = (item: AppNotification) => {
     setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, read: true } : n));
     setIsNotifMenuOpen(false);
+    if (item.targetScreen === 'bible') {
+      openBible(item.biblePassage);
+      return;
+    }
     if (item.targetScreen) {
       if (item.targetScreen === 'breakfasts') {
         setSelectedBreakfastId(undefined);
@@ -149,7 +188,7 @@ export function HomeScreen(props: Props) {
       return false;
     });
     return () => handler.remove();
-  }, [sheet, currentScreen, isDetailOpen]);
+  }, [sheet, currentScreen, isDetailOpen, isNotifMenuOpen]);
 
   const shareVerse = async () => {
     try {
@@ -167,7 +206,7 @@ export function HomeScreen(props: Props) {
   const community = sheet?.kind === 'community' ? homeCommunities.find(group => group.id === sheet.id) : undefined;
   const sheetTitle = !sheet ? '' : sheet.kind === 'breakfast' ? (sheet.mode === 'read' ? 'Votre méditation' : 'Regarder le Breakfast')
     : community ? community.name
-    : ({ notifications: 'Notifications', profile: 'Mon profil', breakfasts: 'Les Breakfasts', groups: 'Communautés', bible: 'La Bible', settings: 'Réglages', event: 'À la une' } as Record<string, string>)[sheet.kind];
+    : ({ notifications: 'Notifications', profile: 'Mon profil', breakfasts: 'Les Breakfasts', groups: 'Communautés', settings: 'Réglages', event: 'À la une' } as Record<string, string>)[sheet.kind];
 
   const communityRow = (group: typeof homeCommunities[number], index: number) => (
     <Pressable
@@ -220,7 +259,9 @@ export function HomeScreen(props: Props) {
 
             <View style={s.welcome}>
               <Text style={s.greeting}>Bonjour, {firstName}</Text>
-              <Text accessibilityRole="header" style={[s.welcomeTitle, compact && { fontSize: 22, lineHeight: 29 }]}>Que ta journée{fontScale < 1.3 ? '\n' : ' '}commence dans la paix</Text>
+              <Text accessibilityRole="header" textBreakStrategy="balanced" lineBreakStrategyIOS="push-out" style={[s.welcomeTitle, compact && s.welcomeTitleCompact]}>
+                Que ta journée commence dans la paix
+              </Text>
             </View>
 
             <View style={[s.hero, { minHeight: compact ? 280 : 296 }]}>
@@ -230,16 +271,20 @@ export function HomeScreen(props: Props) {
               <View style={s.heroContent}>
                 <View style={s.dailyBadge}><Text style={s.dailyBadgeText}>Breakfast du jour</Text></View>
                 <View style={s.heroSpacer} />
-                <Text accessibilityRole="header" style={[s.heroTitle, compact && { fontSize: 27, lineHeight: 34 }]}>La paix au{fontScale < 1.3 ? '\n' : ' '}milieu du bruit</Text>
+                <Text accessibilityRole="header" textBreakStrategy="balanced" lineBreakStrategyIOS="push-out" style={[s.heroTitle, compact && s.heroTitleCompact]}>
+                  {dailyBreakfast.title}
+                </Text>
                 <View style={s.duration}><Clock3 size={17} color="white" strokeWidth={1.5} /><Text style={s.heroMeta}>{dailyBreakfast.duration}</Text></View>
-                <View style={[s.heroActions, fontScale > 1.4 && s.stack]}>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Regarder La paix au milieu du bruit" onPress={() => openBreakfast(dailyBreakfast, 'watch')} style={({ pressed }) => [s.primaryAction, pressed && s.pressed]}>
+                <View style={[s.heroActions, stackHeroActions && s.stack]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Regarder ${dailyBreakfast.title}`} onPress={() => openBreakfast(dailyBreakfast, 'watch')} style={({ pressed }) => [s.primaryAction, stackHeroActions && s.stackedAction, pressed && s.pressed]}>
                     <LinearGradient colors={['#54DDD0', '#00A99D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.watchButton}>
-                      <Play size={19} color={c.onHeroAction} fill={c.onHeroAction} strokeWidth={1.5} /><Text style={s.watchLabel}>Regarder</Text>
+                      <Play size={20} color={c.onHeroAction} fill={c.onHeroAction} strokeWidth={controls.iconStroke} style={s.playIcon} />
+                      <Text style={s.watchLabel}>Regarder</Text>
                     </LinearGradient>
                   </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Lire La paix au milieu du bruit" onPress={() => openBreakfast(dailyBreakfast, 'read')} style={({ pressed }) => [s.readButton, pressed && s.pressed]}>
-                    <BookOpen size={21} color="white" strokeWidth={1.5} /><Text style={s.readLabel}>Lire</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Lire ${dailyBreakfast.title}`} onPress={() => openBreakfast(dailyBreakfast, 'read')} style={({ pressed }) => [s.readButton, stackHeroActions && s.stackedAction, pressed && s.pressed]}>
+                    <BookOpen size={20} color={c.onHero} strokeWidth={controls.iconStroke} />
+                    <Text style={s.readLabel}>Lire</Text>
                   </Pressable>
                 </View>
               </View>
@@ -252,20 +297,21 @@ export function HomeScreen(props: Props) {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Lire le chapitre Jean 15 dans la Bible"
-                onPress={() => setCurrentScreen('bible')}
+                accessibilityLabel="Demeurez en moi, et je demeurerai en vous. Jean 15, verset 4."
+                accessibilityHint="Ouvre Jean 15, verset 4 dans la Bible"
+                onPress={() => openBible(DAILY_BIBLE_PASSAGE)}
                 style={({ pressed }) => [s.verseBody, pressed && s.pressed]}
               >
                 <Text accessible={false} style={s.quote}>“</Text>
                 <View style={s.grow}>
-                  <Text style={s.verse}>Demeurez en moi, et je demeurerai en vous.</Text>
+                  <Text textBreakStrategy="highQuality" lineBreakStrategyIOS="push-out" style={s.verse}>Demeurez en moi, et je demeurerai en vous.</Text>
                   <Text style={s.reference}>Jean 15.4 · Lire le chapitre →</Text>
                 </View>
               </Pressable>
             </View>
 
             <View style={s.section}>
-              <SectionTitle action={() => { setSelectedBreakfastId(undefined); setCurrentScreen('breakfasts'); }}>Derniers Breakfasts</SectionTitle>
+              <SectionTitle actionLabel="Voir tous les Breakfasts" action={() => { setSelectedBreakfastId(undefined); setCurrentScreen('breakfasts'); }}>Derniers Breakfasts</SectionTitle>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -gutter }} contentContainerStyle={{ paddingHorizontal: gutter, gap: 12 }}>
                 {recentBreakfasts.map(item => (
                   <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.format === 'video' ? 'Regarder' : 'Lire'} ${item.title}, ${item.duration}`} onPress={() => openBreakfast(item, item.format === 'video' ? 'watch' : 'read')} style={({ pressed }) => [s.recentCard, { width: compact ? 158 : 174 }, pressed && s.pressed]}>
@@ -281,7 +327,7 @@ export function HomeScreen(props: Props) {
             </View>
 
             <View style={s.section}>
-              <SectionTitle action={() => { setSelectedGroupId(undefined); setCurrentScreen('groups'); }}>Mes communautés</SectionTitle>
+              <SectionTitle actionLabel="Voir toutes les communautés" action={() => { setSelectedGroupId(undefined); setCurrentScreen('groups'); }}>Mes communautés</SectionTitle>
               <View style={[s.communityCard, s.softShadow]}>{homeCommunities.map(communityRow)}</View>
             </View>
 
@@ -323,6 +369,9 @@ export function HomeScreen(props: Props) {
           />
         ) : currentScreen === 'bible' ? (
           <BibleScreen
+            key={bibleOpening.revision}
+            readerId={props.readerId}
+            initialPassage={bibleOpening.passage}
             onBack={() => setCurrentScreen('home')}
             onOpenProfile={() => setCurrentScreen('settings')}
             onOpenNotifications={() => setIsNotifMenuOpen(true)}
@@ -349,7 +398,7 @@ export function HomeScreen(props: Props) {
             accountError={props.accountError}
             navHeight={navHeight}
             bibleFontSize={bibleFontSize}
-            onChangeBibleFontSize={setBibleFontSize}
+            onChangeBibleFontSize={changeBibleFontSize}
             onBack={() => setCurrentScreen('home')}
             onSignOut={props.onSignOut}
             onChangePassword={props.onChangePassword}
@@ -371,7 +420,7 @@ export function HomeScreen(props: Props) {
         importantForAccessibility={(sheet !== null || isDetailOpen) ? 'no-hide-descendants' : 'auto'}
         style={[
           s.navShell,
-          { width: Math.min(width - gutter * 2, 560), left: (width - Math.min(width - gutter * 2, 560)) / 2, bottom },
+          { width: navWidth, left: (width - navWidth) / 2, bottom },
           (sheet !== null || isDetailOpen) && s.navHidden,
         ]}
       >
@@ -399,15 +448,17 @@ export function HomeScreen(props: Props) {
                       setSelectedGroupId(undefined);
                       setCurrentScreen('groups');
                     } else if (tab.id === 'bible') {
-                      setCurrentScreen('bible');
+                      openBible();
                     } else if (tab.id === 'settings') {
                       setCurrentScreen('settings');
                     }
                   }}
-                  style={({ pressed }) => [s.navItem, selected && s.navSelected, pressed && s.pressed]}
+                  style={({ pressed }) => [s.navItem, pressed && s.pressed]}
                 >
-                  <tab.icon size={23} color={selected ? c.action : c.text} strokeWidth={1.5} />
-                  <Text style={[s.navLabel, compact && { fontSize: 9 }, selected && { color: c.action }]}>{tab.label}</Text>
+                  <View style={[s.navIcon, selected && s.navIconSelected]}>
+                    <tab.icon size={22} color={selected ? c.action : c.text} strokeWidth={controls.iconStroke} />
+                  </View>
+                  <Text style={[s.navLabel, selected && s.navLabelSelected]}>{tab.label}</Text>
                 </Pressable>
               );
             })}
@@ -460,7 +511,6 @@ export function HomeScreen(props: Props) {
                 <Text style={s.detailMeta}>Événement de démonstration · Horaires et lieu précis à confirmer.</Text>
               </>}
               {sheet?.kind === 'notifications' && <View style={s.empty}><Bell size={32} color={c.action} strokeWidth={1.5} /><Text style={s.detailTitle}>Un moment de calme</Text><Text style={s.detailBody}>Vous n’avez aucune notification pour le moment.</Text></View>}
-              {sheet?.kind === 'bible' && <View style={s.empty}><BookOpen size={36} color={c.action} strokeWidth={1.5} /><Text style={s.detailTitle}>La Parole, chaque jour</Text><Text style={s.detailBody}>Le lecteur biblique Louis Segond 1910 est en préparation. Vous pourrez y parcourir les livres et les chapitres.</Text></View>}
               {profile && <>
                 <Text style={s.detailTitle}>{props.name || 'Votre profil'}</Text>
                 {props.country ? <Text style={s.detailBody}>{props.country}</Text> : null}
@@ -513,19 +563,23 @@ const s = StyleSheet.create({
   avatarImage: { width: '100%', height: '100%' }, initials: { fontFamily: fonts.heading, fontSize: 17, color: c.action },
   welcome: { marginTop: 16, marginBottom: 20 }, greeting: { fontFamily: fonts.heading, fontSize: 14, lineHeight: 21, color: c.text, marginBottom: 6 },
   welcomeTitle: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 31, letterSpacing: -0.6, color: c.text },
+  welcomeTitleCompact: { fontSize: 22, lineHeight: 29 },
   hero: { borderRadius: 32, overflow: 'hidden', backgroundColor: '#243D3A' },
   heroContent: { flex: 1, padding: 20 }, heroSpacer: { minHeight: 24, flex: 1 },
   dailyBadge: { alignSelf: 'flex-start', backgroundColor: c.action, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   dailyBadgeText: { color: 'white', fontFamily: fonts.heading, fontSize: 12, lineHeight: 17 },
   watermark: { position: 'absolute', top: 16, right: 18, opacity: 0.14 },
   heroTitle: { fontFamily: fonts.bold, fontSize: 30, lineHeight: 36, letterSpacing: -0.6, color: c.onHero, marginBottom: 12 },
+  heroTitleCompact: { fontSize: 27, lineHeight: 34 },
   duration: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }, heroMeta: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: c.onHero },
   heroActions: { flexDirection: 'row', gap: 10 }, stack: { flexDirection: 'column' },
   primaryAction: { flex: 1.25, borderRadius: 12, overflow: 'hidden', minHeight: 52 },
   watchButton: { flex: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 14, justifyContent: 'center', alignItems: 'center' },
-  watchLabel: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.onHeroAction },
+  playIcon: { marginLeft: 2 },
+  watchLabel: { flexShrink: 1, textAlign: 'center', fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.onHeroAction },
   readButton: { flex: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 14, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', backgroundColor: 'rgba(255,255,255,0.12)', justifyContent: 'center', alignItems: 'center' },
-  readLabel: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: 'white' },
+  stackedAction: { flex: 0 },
+  readLabel: { flexShrink: 1, textAlign: 'center', fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.onHero },
   softShadow: { shadowColor: '#584A37', shadowOpacity: 0.06, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
   verseCard: { marginTop: 12, borderRadius: 24, padding: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: '#F0ECE5' },
   verseHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, shareButton: { marginTop: -10, marginBottom: -8, marginRight: -12 },
@@ -542,13 +596,13 @@ const s = StyleSheet.create({
   communityCard: { borderRadius: 24, backgroundColor: c.surface, borderWidth: 1, borderColor: '#F0ECE5', paddingHorizontal: 12 },
   communityRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.divider },
-  communityImage: { width: 62, height: 48, borderRadius: 12, backgroundColor: c.mint },
+  communityImage: { width: 62, height: 48, borderRadius: 12, backgroundColor: c.mint, borderWidth: StyleSheet.hairlineWidth, borderColor: controls.photoOutline },
   communityName: { fontFamily: fonts.heading, fontSize: 13, lineHeight: 19, color: c.text },
   pending: { fontFamily: fonts.medium, color: '#855C08', fontSize: 10, lineHeight: 16, marginTop: 3 },
   neutralBadge: { backgroundColor: '#F0EFEB', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, maxWidth: 90 },
   badgeText: { fontFamily: fonts.medium, fontSize: 10, lineHeight: 15, color: c.muted },
   eventCard: { marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, padding: 12, borderRadius: 24, borderWidth: 1, borderColor: '#F0ECE5' },
-  eventImage: { width: 76, height: 76, borderRadius: 14, backgroundColor: c.amberSurface },
+  eventImage: { width: 76, height: 76, borderRadius: 12, backgroundColor: c.amberSurface, borderWidth: StyleSheet.hairlineWidth, borderColor: controls.photoOutline },
   eventBadge: { alignSelf: 'flex-start', backgroundColor: c.amberSurface, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4 },
   eventBadgeText: { fontFamily: fonts.medium, fontSize: 10, lineHeight: 16, color: c.amberText }, eventTitle: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.text },
   eventMeta: { fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: c.muted },
@@ -557,10 +611,13 @@ const s = StyleSheet.create({
   navShell: { position: 'absolute', maxWidth: 560, alignSelf: 'center', borderRadius: 36, borderWidth: 1, borderColor: '#FFFFFF', shadowColor: '#504330', shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
   navHidden: { opacity: 0, pointerEvents: 'none' },
   navGlass: { borderRadius: 36, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.92)' },
-  navRow: { flexDirection: 'row', alignItems: 'stretch', padding: 6, gap: 2 },
-  navItem: { flex: 1, minWidth: 48, minHeight: 58, paddingHorizontal: 2, paddingVertical: 8, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  navSelected: { backgroundColor: c.mint }, navLabel: { fontFamily: fonts.heading, fontSize: 10, lineHeight: 15, color: c.text, textAlign: 'center' },
-  pressed: { opacity: 0.72 },
+  navRow: { flexDirection: 'row', alignItems: 'stretch', padding: 4 },
+  navItem: { flex: 1, minWidth: controls.touchSize, minHeight: 60, paddingHorizontal: 1, paddingVertical: 6, alignItems: 'center', gap: 4 },
+  navIcon: { width: 40, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  navIconSelected: { backgroundColor: c.mint },
+  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 11, lineHeight: 15, color: c.text, textAlign: 'center' },
+  navLabelSelected: { color: c.action },
+  pressed: { opacity: controls.pressedOpacity },
   modalRoot: { flex: 1, justifyContent: 'flex-end' }, scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(17,26,42,0.45)' },
   sheet: { backgroundColor: c.canvas, borderTopLeftRadius: 32, borderTopRightRadius: 32, width: '100%', maxWidth: 600, alignSelf: 'center', overflow: 'hidden' },
   sheetHandle: { width: 36, height: 4, backgroundColor: c.divider, borderRadius: 4, alignSelf: 'center', marginTop: 12 },

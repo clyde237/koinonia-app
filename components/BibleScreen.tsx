@@ -2,8 +2,11 @@
 import React, { useState, useMemo, useRef, useEffect, type ComponentRef } from 'react';
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   Alert,
   BackHandler,
+  Clipboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -15,11 +18,10 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
-  ArrowRight,
   Bell,
   BookOpen,
   Check,
@@ -27,25 +29,29 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
-  Minus,
+  Highlighter,
   Music,
-  Plus,
   Search,
   Share2,
   Sparkles,
-  Type,
   X,
 } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
-import { SearchBar } from './SearchBar';
 import {
   BIBLE_BOOKS,
-  BibleBook,
-  BibleVerse,
-  Testament,
+  DAILY_BIBLE_PASSAGE,
+  adjacentChapter,
+  formatBibleReference,
+  getBibleBook,
   getChapterVerses,
+  normalizeBibleText,
+  type BibleBook,
+  type BiblePassage,
+  type BibleVerse,
+  type Testament,
 } from '../data/bible';
-import { fonts, homeTheme as c } from '../lib/theme';
+import { loadBibleHighlights, loadBiblePosition, saveBibleHighlights, saveBiblePosition } from '../lib/bible-library';
+import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { BibleSearch } from './BibleSearch';
 
 export type FontSizeMode = 'small' | 'medium' | 'large' | 'xlarge';
 
@@ -60,142 +66,157 @@ type Props = {
   onBack?: () => void;
   onOpenProfile?: () => void;
   onOpenNotifications?: () => void;
-  initialBookId?: string;
-  initialChapter?: number;
+  readerId?: string;
+  initialPassage?: BiblePassage;
   navHeight?: number;
   fontSizeMode?: FontSizeMode;
   onDetailOpenChange?: (open: boolean) => void;
+};
+
+const DEFAULT_PASSAGE = { bookId: DAILY_BIBLE_PASSAGE.bookId, chapter: DAILY_BIBLE_PASSAGE.chapter };
+
+type LoadedChapter = {
+  key: string;
+  verses: BibleVerse[];
 };
 
 export function BibleScreen({
   onBack,
   onOpenProfile,
   onOpenNotifications,
-  initialBookId = 'jean',
-  initialChapter = 15,
+  readerId = 'default_reader',
+  initialPassage,
   navHeight = 80,
   fontSizeMode = 'medium',
   onDetailOpenChange,
 }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = width < 370;
   const gutter = compact ? 16 : 20;
 
-  // Active top tab: Bible ou Cantiques
   const [activeTab, setActiveTab] = useState<'bible' | 'cantiques'>('bible');
+  const [passage, setPassage] = useState<BiblePassage | undefined>(initialPassage);
+  const [loadedChapter, setLoadedChapter] = useState<LoadedChapter>();
+  const [failedChapter, setFailedChapter] = useState<string>();
+  const [retry, setRetry] = useState(0);
 
-  // Book & Chapter State
-  const [selectedBookId, setSelectedBookId] = useState<string>(initialBookId);
-  const [selectedChapter, setSelectedChapter] = useState<number>(initialChapter);
-
-  // Selector modal
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerTestament, setPickerTestament] = useState<Testament>('NT');
   const [pickerSearch, setPickerSearch] = useState('');
   const [stepInPicker, setStepInPicker] = useState<'book' | 'chapter'>('book');
-  const [tempBookForChapter, setTempBookForChapter] = useState<BibleBook | null>(null);
-
-  // Quick search in chapter
-  const [searchQuery, setSearchQuery] = useState('');
+  const [tempBookForChapter, setTempBookForChapter] = useState<BibleBook>();
   const [isSearchVisible, setIsSearchVisible] = useState(false);
 
-  // Verse multi-selection
   const [selectedVerses, setSelectedVerses] = useState<number[]>([]);
-  const [copiedNotification, setCopiedNotification] = useState<string | null>(null);
-
+  const [highlights, setHighlights] = useState<ReadonlySet<number>>(new Set());
+  const [savingHighlights, setSavingHighlights] = useState(false);
+  const [notice, setNotice] = useState<string>();
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const targetVerseRef = useRef<ComponentRef<typeof View>>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const mounted = useRef(true);
+  const savingRef = useRef(false);
+  const scrollTarget = useRef<number | undefined>(initialPassage?.verse);
 
-  // Current active book object
-  const currentBook = useMemo(() => {
-    return BIBLE_BOOKS.find(b => b.id === selectedBookId) || BIBLE_BOOKS[34]; // default to Jean
-  }, [selectedBookId]);
+  const currentBook = getBibleBook(passage?.bookId ?? DEFAULT_PASSAGE.bookId)!;
+  const selectedBookId = currentBook.id;
+  const selectedChapter = passage?.chapter ?? DEFAULT_PASSAGE.chapter;
+  const chapterKey = `${selectedBookId}:${selectedChapter}`;
+  const activeChapter = loadedChapter?.key === chapterKey ? loadedChapter : undefined;
+  const previousPassage = passage && adjacentChapter(passage, -1);
+  const nextPassage = passage && adjacentChapter(passage, 1);
+  const currentChapterRef = useRef(chapterKey);
+  currentChapterRef.current = chapterKey;
 
-  // Current verses
-  const rawVerses = useMemo(() => {
-    return getChapterVerses(selectedBookId, selectedChapter);
-  }, [selectedBookId, selectedChapter]);
-
-  // Filtered verses if search is active
-  const displayedVerses = useMemo(() => {
-    if (!searchQuery.trim()) return rawVerses;
-    const q = searchQuery.toLowerCase().trim();
-    return rawVerses.filter(v => v.text.toLowerCase().includes(q) || String(v.number) === q);
-  }, [rawVerses, searchQuery]);
-
-  // Notify parent of modal opening to adjust navigation if needed
   useEffect(() => {
-    onDetailOpenChange?.(isPickerOpen);
-  }, [isPickerOpen, onDetailOpenChange]);
-
-  // Handle hardware back button
-  useEffect(() => {
-    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (isPickerOpen) {
-        if (stepInPicker === 'chapter') {
-          setStepInPicker('book');
-          return true;
-        }
-        setIsPickerOpen(false);
-        return true;
-      }
-      if (selectedVerses.length > 0) {
-        setSelectedVerses([]);
-        return true;
-      }
-      if (activeTab === 'cantiques') {
-        setActiveTab('bible');
-        return true;
-      }
-      if (onBack) {
-        onBack();
-        return true;
-      }
-      return false;
+    if (initialPassage) return;
+    let active = true;
+    loadBiblePosition(readerId).catch(() => undefined).then(saved => {
+      if (active) setPassage(saved ?? DEFAULT_PASSAGE);
     });
+    return () => { active = false; };
+  }, [readerId, initialPassage]);
+
+  const hasPassage = Boolean(passage);
+  useEffect(() => {
+    if (!hasPassage) return;
+    let active = true;
+    setFailedChapter(undefined);
+
+    try {
+      const verses = getChapterVerses(selectedBookId, selectedChapter);
+      if (!verses || !verses.length) {
+        if (active) setFailedChapter(chapterKey);
+        return;
+      }
+      if (active) {
+        setLoadedChapter({ key: chapterKey, verses });
+      }
+
+      loadBibleHighlights(readerId, selectedBookId, selectedChapter)
+        .catch(() => new Set<number>())
+        .then(savedHighlights => {
+          if (!active) return;
+          setHighlights(savedHighlights);
+        });
+
+      saveBiblePosition(readerId, { bookId: selectedBookId, chapter: selectedChapter }).catch(() => {});
+    } catch {
+      if (active) setFailedChapter(chapterKey);
+    }
+
+    return () => { active = false; };
+  }, [chapterKey, currentBook, hasPassage, readerId, retry, selectedBookId, selectedChapter]);
+
+  const detailOpen = isPickerOpen || isSearchVisible || selectedVerses.length > 0 || activeTab === 'cantiques';
+  useEffect(() => {
+    onDetailOpenChange?.(detailOpen);
+    return () => onDetailOpenChange?.(false);
+  }, [detailOpen, onDetailOpenChange]);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; clearTimeout(noticeTimer.current); };
+  }, []);
+
+  const goBack = () => {
+    if (isSearchVisible) setIsSearchVisible(false);
+    else if (selectedVerses.length) setSelectedVerses([]);
+    else if (activeTab === 'cantiques') setActiveTab('bible');
+    else if (onBack) onBack();
+    else return false;
+    return true;
+  };
+
+  useEffect(() => {
+    const handler = BackHandler.addEventListener('hardwareBackPress', goBack);
     return () => handler.remove();
-  }, [isPickerOpen, stepInPicker, selectedVerses, activeTab, onBack]);
+  }, [isSearchVisible, selectedVerses.length, activeTab, onBack]);
 
-  // Clear selection on chapter change
-  const navigateToChapter = (newChapter: number, newBookId?: string) => {
-    const bookToUse = newBookId ? BIBLE_BOOKS.find(b => b.id === newBookId) || currentBook : currentBook;
-    const targetBookId = bookToUse.id;
-    const boundedChapter = Math.max(1, Math.min(newChapter, bookToUse.chaptersCount));
-
-    setSelectedBookId(targetBookId);
-    setSelectedChapter(boundedChapter);
+  const openPassage = (target: BiblePassage) => {
+    scrollTarget.current = target.verse;
+    clearTimeout(noticeTimer.current);
+    if (!target.verse) scrollRef.current?.scrollTo({ y: 0, animated: false });
+    setPassage(target);
+    setActiveTab('bible');
     setSelectedVerses([]);
-    setSearchQuery('');
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    setNotice(undefined);
+    setIsSearchVisible(false);
+    setIsPickerOpen(false);
   };
 
-  const handlePrevChapter = () => {
-    if (selectedChapter > 1) {
-      navigateToChapter(selectedChapter - 1);
-    } else {
-      // Aller au dernier chapitre du livre précédent
-      const currentIndex = BIBLE_BOOKS.findIndex(b => b.id === currentBook.id);
-      if (currentIndex > 0) {
-        const prevBook = BIBLE_BOOKS[currentIndex - 1];
-        navigateToChapter(prevBook.chaptersCount, prevBook.id);
-      }
-    }
+  const scrollToTargetVerse = () => {
+    const content = scrollRef.current?.getInnerViewRef();
+    const verse = scrollTarget.current;
+    if (!content || verse === undefined) return;
+    targetVerseRef.current?.measureLayout(content, (_x, y) => {
+      if (scrollTarget.current !== verse) return;
+      scrollTarget.current = undefined;
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: false });
+    }, () => {});
   };
 
-  const handleNextChapter = () => {
-    if (selectedChapter < currentBook.chaptersCount) {
-      navigateToChapter(selectedChapter + 1);
-    } else {
-      // Aller au premier chapitre du livre suivant
-      const currentIndex = BIBLE_BOOKS.findIndex(b => b.id === currentBook.id);
-      if (currentIndex < BIBLE_BOOKS.length - 1) {
-        const nextBook = BIBLE_BOOKS[currentIndex + 1];
-        navigateToChapter(1, nextBook.id);
-      }
-    }
-  };
-
-  // Open picker modal
   const openPicker = () => {
     setPickerTestament(currentBook.testament);
     setPickerSearch('');
@@ -204,74 +225,81 @@ export function BibleScreen({
     setIsPickerOpen(true);
   };
 
-  const selectBookInPicker = (book: BibleBook) => {
-    setTempBookForChapter(book);
-    setStepInPicker('chapter');
+  const toggleVerseSelection = (number: number) => {
+    if (savingRef.current) return;
+    setSelectedVerses(previous => previous.includes(number)
+      ? previous.filter(verse => verse !== number)
+      : [...previous, number]);
   };
 
-  const selectChapterInPicker = (chapter: number) => {
-    if (tempBookForChapter) {
-      setSelectedBookId(tempBookForChapter.id);
-      setSelectedChapter(chapter);
-      setSelectedVerses([]);
-      setSearchQuery('');
-      setIsPickerOpen(false);
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-    }
-  };
-
-  // Verse selection toggle
-  const toggleVerseSelection = (verseNumber: number) => {
-    setSelectedVerses(prev => {
-      if (prev.includes(verseNumber)) {
-        return prev.filter(n => n !== verseNumber);
-      } else {
-        return [...prev, verseNumber].sort((a, b) => a - b);
-      }
-    });
-  };
-
-  // Formatter for selected verses
   const getSelectedVersesText = () => {
-    if (selectedVerses.length === 0) return '';
-    const verses = rawVerses.filter(v => selectedVerses.includes(v.number));
-    const textFormatted = verses.map(v => `${v.number}. ${v.text}`).join('\n');
-    const range = selectedVerses.length === 1
-      ? `${currentBook.name} ${selectedChapter}.${selectedVerses[0]}`
-      : `${currentBook.name} ${selectedChapter}.${selectedVerses[0]}-${selectedVerses[selectedVerses.length - 1]}`;
-    return `« ${textFormatted} »\n— ${range} (Louis Segond 1910)\nKoinonia · La Parole de Dieu`;
+    const verses = activeChapter?.verses.filter(verse => selectedVerses.includes(verse.number));
+    if (!verses?.length) return '';
+    const text = verses.map(verse => `${verse.number}. ${verse.text}`).join('\n');
+    const reference = formatBibleReference(currentBook, selectedChapter, verses.map(verse => verse.number));
+    return `« ${text} »\n${reference} (Louis Segond 1910)\nKoinonia`;
   };
 
-  // Share action
+  const showNotice = (text: string) => {
+    clearTimeout(noticeTimer.current);
+    setNotice(text);
+    AccessibilityInfo.announceForAccessibility(text);
+    noticeTimer.current = setTimeout(() => setNotice(undefined), 2500);
+  };
+
   const handleShareSelected = async () => {
     const text = getSelectedVersesText();
     if (!text) return;
     try {
       await Share.share({ message: text });
     } catch {
-      Alert.alert('Erreur', 'Impossible d’ouvrir le partage sur cet appareil.');
+      Alert.alert('Partage indisponible', 'Veuillez réessayer.');
     }
   };
 
-  // Copy action
   const handleCopySelected = () => {
     const text = getSelectedVersesText();
     if (!text) return;
-    // Show toast notification
-    setCopiedNotification('Passage copié avec succès !');
-    setTimeout(() => {
-      setCopiedNotification(null);
-    }, 2500);
+    try {
+      Clipboard.setString(text);
+      showNotice('Passage copié.');
+    } catch {
+      Alert.alert('Copie indisponible', 'Veuillez réessayer.');
+    }
   };
 
-  // Books filtered in picker modal
-  const booksInPicker = useMemo(() => {
-    let list = BIBLE_BOOKS.filter(b => b.testament === pickerTestament);
-    if (pickerSearch.trim()) {
-      const q = pickerSearch.toLowerCase().trim();
-      list = list.filter(b => b.name.toLowerCase().includes(q) || b.abbr.toLowerCase().includes(q));
+  const allHighlighted = selectedVerses.every(verse => highlights.has(verse));
+
+  const handleHighlightSelected = async () => {
+    if (!selectedVerses.length || savingRef.current) return;
+    savingRef.current = true;
+    setSavingHighlights(true);
+    const next = new Set(highlights);
+    for (const verse of selectedVerses) {
+      if (allHighlighted) next.delete(verse);
+      else next.add(verse);
     }
-    return list;
+
+    try {
+      await saveBibleHighlights(readerId, selectedBookId, selectedChapter, next);
+      if (mounted.current && currentChapterRef.current === chapterKey) {
+        setHighlights(next);
+        setSelectedVerses([]);
+        showNotice(allHighlighted ? 'Surlignage retiré.' : 'Passage surligné.');
+      }
+    } catch {
+      if (mounted.current) Alert.alert('Surlignage indisponible', 'Veuillez réessayer.');
+    } finally {
+      savingRef.current = false;
+      if (mounted.current) setSavingHighlights(false);
+    }
+  };
+
+  const booksInPicker = useMemo(() => {
+    const search = normalizeBibleText(pickerSearch).replace(/\s+/g, '');
+    return BIBLE_BOOKS.filter(book => search
+      ? [book.name, book.abbr, book.code].some(label => normalizeBibleText(label).replace(/\s+/g, '').includes(search))
+      : book.testament === pickerTestament);
   }, [pickerTestament, pickerSearch]);
 
   const activeFont = BIBLE_FONT_SIZES[fontSizeMode];
@@ -279,19 +307,19 @@ export function BibleScreen({
   return (
     <View style={s.root}>
       {/* Top Header */}
-      <View style={[s.header, { paddingHorizontal: gutter }]}>
+      <View style={[s.header, fontScale > 1.3 && s.headerWrapped, { paddingHorizontal: gutter }]}>
         <View style={s.headerLeft}>
           {onBack && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Retour à l’accueil"
-              onPress={onBack}
+              accessibilityLabel={isSearchVisible ? 'Retour à la lecture' : 'Retour'}
+              onPress={goBack}
               style={({ pressed }) => [s.iconBtn, pressed && s.pressed]}
             >
               <ArrowLeft size={22} color={c.text} strokeWidth={1.5} />
             </Pressable>
           )}
-          <View>
+          <View style={s.headerTitleBlock}>
             <Text accessibilityRole="header" style={s.pageTitle}>La Bible</Text>
             <View style={s.versionTag}>
               <Text style={s.versionTagText}>Louis Segond 1910</Text>
@@ -303,11 +331,14 @@ export function BibleScreen({
           {activeTab === 'bible' && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Rechercher un verset"
-              onPress={() => setIsSearchVisible(prev => !prev)}
+              accessibilityLabel={isSearchVisible ? 'Fermer la recherche de versets' : 'Rechercher un verset'}
+              accessibilityState={{ expanded: isSearchVisible, disabled: !activeChapter }}
+              disabled={!activeChapter}
+              onPress={() => { setSelectedVerses([]); setIsSearchVisible(prev => !prev); }}
               style={({ pressed }) => [
                 s.iconBtn,
                 isSearchVisible && s.iconBtnActive,
+                !activeChapter && s.disabled,
                 pressed && s.pressed,
               ]}
             >
@@ -354,16 +385,16 @@ export function BibleScreen({
             ]}
           >
             <BookOpen size={17} color={activeTab === 'bible' ? c.action : c.muted} strokeWidth={1.5} />
-            <Text numberOfLines={1} style={[s.tabLabel, activeTab === 'bible' && s.tabLabelActive]}>
+            <Text style={[s.tabLabel, activeTab === 'bible' && s.tabLabelActive]}>
               Bible
             </Text>
           </Pressable>
 
           <Pressable
             accessibilityRole="tab"
-            accessibilityLabel="Onglet Cantiques"
+            accessibilityLabel="Onglet Cantiques, bientôt disponible"
             accessibilityState={{ selected: activeTab === 'cantiques' }}
-            onPress={() => setActiveTab('cantiques')}
+            onPress={() => { setActiveTab('cantiques'); setIsSearchVisible(false); setSelectedVerses([]); }}
             style={({ pressed }) => [
               s.tabButton,
               activeTab === 'cantiques' && s.tabButtonActive,
@@ -371,7 +402,7 @@ export function BibleScreen({
             ]}
           >
             <Music size={17} color={activeTab === 'cantiques' ? c.action : c.muted} strokeWidth={1.5} />
-            <Text numberOfLines={1} style={[s.tabLabel, activeTab === 'cantiques' && s.tabLabelActive]}>
+            <Text style={[s.tabLabel, activeTab === 'cantiques' && s.tabLabelActive]}>
               Cantiques
             </Text>
             <View style={s.upcomingBadge}>
@@ -381,73 +412,8 @@ export function BibleScreen({
         </View>
       </View>
 
-      {/* TAB 1: BIBLE READER */}
-      {activeTab === 'bible' ? (
-        <ScrollView
-          ref={scrollRef}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            s.scrollContent,
-            { paddingHorizontal: gutter, paddingBottom: navHeight + Math.max(insets.bottom, 16) + 72 },
-          ]}
-        >
-          {/* Quick Chapter Search Bar (when toggled) */}
-          {isSearchVisible && (
-            <View style={s.searchContainer}>
-              <SearchBar
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onClear={() => setSearchQuery('')}
-                placeholder={`Rechercher dans ${currentBook.name} ${selectedChapter}…`}
-                autoFocus
-              />
-            </View>
-          )}
-
-          {/* Passage Selector Bar */}
-          <View style={[s.selectorCard, s.cardShadow]}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Sélectionner un livre et un chapitre. Actuellement : ${currentBook.name} chapitre ${selectedChapter}`}
-              onPress={openPicker}
-              style={({ pressed }) => [s.selectorTrigger, pressed && s.pressed]}
-            >
-              <View style={s.selectorInfo}>
-                <View style={s.testamentBadge}>
-                  <Text style={s.testamentBadgeText}>
-                    {currentBook.testament === 'AT' ? 'Ancien Testament' : 'Nouveau Testament'}
-                  </Text>
-                </View>
-                <View style={s.bookNameRow}>
-                  <Text style={s.selectedBookTitle}>
-                    {currentBook.name} <Text style={s.selectedChapterNumber}>{selectedChapter}</Text>
-                  </Text>
-                  <ChevronDown size={20} color={c.action} strokeWidth={1.5} style={s.dropdownIcon} />
-                </View>
-              </View>
-
-              <View style={s.quickNavControls}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Chapitre précédent"
-                  onPress={handlePrevChapter}
-                  style={({ pressed }) => [s.navArrowBtn, pressed && s.pressed]}
-                >
-                  <ChevronLeft size={20} color={c.text} strokeWidth={1.5} />
-                </Pressable>
-                <View style={s.navDivider} />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Chapitre suivant"
-                  onPress={handleNextChapter}
-                  style={({ pressed }) => [s.navArrowBtn, pressed && s.pressed]}
-                >
-                  <ChevronRight size={20} color={c.text} strokeWidth={1.5} />
-                </Pressable>
-              </View>
-            </Pressable>
-          </View>
-
+      {activeTab === 'bible' && !isSearchVisible && (selectedVerses.length > 0 || notice) && (
+        <View style={{ paddingHorizontal: gutter }}>
           {/* Verses Selection Bar (Contextual) */}
           {selectedVerses.length > 0 && (
             <View style={[s.selectionBar, s.cardShadow]}>
@@ -483,6 +449,18 @@ export function BibleScreen({
 
                 <Pressable
                   accessibilityRole="button"
+                  accessibilityLabel={allHighlighted ? 'Retirer le surlignage' : 'Surligner les versets sélectionnés'}
+                  accessibilityState={{ busy: savingHighlights, disabled: savingHighlights }}
+                  disabled={savingHighlights}
+                  onPress={handleHighlightSelected}
+                  style={({ pressed }) => [s.selectionActionBtn, pressed && s.pressed]}
+                >
+                  <Highlighter size={17} color={c.action} strokeWidth={1.5} />
+                  <Text style={s.selectionActionBtnText}>{allHighlighted ? 'Retirer' : 'Surligner'}</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
                   accessibilityLabel="Désélectionner tout"
                   onPress={() => setSelectedVerses([])}
                   style={({ pressed }) => [s.selectionCloseBtn, pressed && s.pressed]}
@@ -494,12 +472,81 @@ export function BibleScreen({
           )}
 
           {/* Copy Toast Alert */}
-          {copiedNotification && (
+          {notice && (
             <View style={s.toastAlert}>
               <Check size={16} color="white" strokeWidth={2} />
-              <Text style={s.toastAlertText}>{copiedNotification}</Text>
+              <Text style={s.toastAlertText}>{notice}</Text>
             </View>
           )}
+
+        </View>
+      )}
+
+      {activeTab === 'bible' && isSearchVisible && activeChapter ? (
+        <BibleSearch
+          book={currentBook}
+          chapter={selectedChapter}
+          verses={activeChapter.verses}
+          inset={Math.max(insets.bottom, 16)}
+          onOpen={openPassage}
+        />
+      ) : activeTab === 'bible' ? (
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            s.scrollContent,
+            { paddingHorizontal: gutter, paddingBottom: navHeight + Math.max(insets.bottom, 16) + 72 },
+          ]}
+        >
+          {/* Passage Selector Bar */}
+          <View style={[s.selectorCard, s.cardShadow, fontScale > 1.4 && s.selectorCardStacked]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Sélectionner un livre et un chapitre. Actuellement : ${currentBook.name} chapitre ${selectedChapter}`}
+              disabled={!passage}
+              onPress={openPicker}
+              style={({ pressed }) => [s.selectorTrigger, pressed && s.pressed]}
+            >
+              <View style={s.selectorInfo}>
+                <View style={s.testamentBadge}>
+                  <Text style={s.testamentBadgeText}>
+                    {currentBook.testament === 'AT' ? 'Ancien Testament' : 'Nouveau Testament'}
+                  </Text>
+                </View>
+                <View style={s.bookNameRow}>
+                  <Text style={s.selectedBookTitle}>
+                    {currentBook.name} <Text style={s.selectedChapterNumber}>{selectedChapter}</Text>
+                  </Text>
+                  <ChevronDown size={20} color={c.action} strokeWidth={1.5} style={s.dropdownIcon} />
+                </View>
+              </View>
+            </Pressable>
+
+            <View style={[s.quickNavControls, fontScale > 1.4 && s.quickNavControlsStacked]}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Chapitre précédent"
+                accessibilityState={{ disabled: !previousPassage }}
+                disabled={!previousPassage}
+                onPress={() => { if (previousPassage) openPassage(previousPassage); }}
+                style={({ pressed }) => [s.navArrowBtn, !previousPassage && s.disabled, pressed && s.pressed]}
+              >
+                <ChevronLeft size={20} color={c.text} strokeWidth={controls.iconStroke} />
+              </Pressable>
+              <View style={s.navDivider} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Chapitre suivant"
+                accessibilityState={{ disabled: !nextPassage }}
+                disabled={!nextPassage}
+                onPress={() => { if (nextPassage) openPassage(nextPassage); }}
+                style={({ pressed }) => [s.navArrowBtn, !nextPassage && s.disabled, pressed && s.pressed]}
+              >
+                <ChevronRight size={20} color={c.text} strokeWidth={controls.iconStroke} />
+              </Pressable>
+            </View>
+          </View>
 
           {/* Scripture Reading Paper Card */}
           <View style={[s.scriptureCard, s.cardShadow]}>
@@ -508,51 +555,60 @@ export function BibleScreen({
               <Text style={s.chapterSubheading}>
                 {currentBook.testament === 'AT' ? 'ANCIEN TESTAMENT' : 'NOUVEAU TESTAMENT'}
               </Text>
-              <Text style={s.chapterTitle}>
+              <Text accessibilityRole="header" textBreakStrategy="balanced" style={s.chapterTitle}>
                 {currentBook.name} {selectedChapter}
               </Text>
-              <View style={s.headingDivider} />
             </View>
 
             {/* Verses Stream */}
-            {displayedVerses.length === 0 ? (
+            {failedChapter === chapterKey ? (
               <View style={s.emptySearchResult}>
-                <Text style={s.emptySearchText}>
-                  Aucun verset ne correspond à « {searchQuery} » dans ce chapitre.
-                </Text>
-                <Pressable onPress={() => setSearchQuery('')} style={s.resetSearchBtn}>
-                  <Text style={s.resetSearchBtnText}>Effacer la recherche</Text>
+                <Text accessibilityLiveRegion="polite" style={s.emptySearchText}>Ce chapitre est momentanément indisponible.</Text>
+                <Pressable accessibilityRole="button" onPress={() => setRetry(value => value + 1)} style={s.resetSearchBtn}>
+                  <Text style={s.resetSearchBtnText}>Réessayer</Text>
                 </Pressable>
               </View>
+            ) : !activeChapter ? (
+              <ActivityIndicator color={c.action} accessibilityLabel="Chargement du chapitre" style={s.chapterLoading} />
             ) : (
               <View style={s.versesList}>
-                {displayedVerses.map(verse => {
+                {activeChapter.verses.map(verse => {
                   const isSelected = selectedVerses.includes(verse.number);
+                  const isHighlighted = highlights.has(verse.number);
+                  const isTarget = passage?.verse === verse.number;
                   return (
                     <Pressable
-                      key={verse.number}
+                      key={`${chapterKey}:${verse.number}`}
+                      ref={isTarget ? targetVerseRef : undefined}
+                      onLayout={isTarget ? scrollToTargetVerse : undefined}
+                      collapsable={!isTarget}
                       accessibilityRole="button"
-                      accessibilityLabel={`Verset ${verse.number}. ${isSelected ? 'Sélectionné. Taper pour désélectionner.' : 'Taper pour sélectionner.'}`}
+                      accessibilityLabel={`Verset ${verse.number}${isHighlighted ? ', surligné' : ''}. ${verse.text}`}
+                      accessibilityHint={isSelected ? 'Désélectionne le verset' : 'Sélectionne le verset'}
+                      accessibilityState={{ selected: isSelected }}
                       onPress={() => toggleVerseSelection(verse.number)}
                       style={({ pressed }) => [
                         s.verseRow,
+                        isHighlighted && s.verseRowHighlighted,
+                        isTarget && s.verseRowTarget,
                         isSelected && s.verseRowSelected,
                         pressed && s.verseRowPressed,
                       ]}
                     >
-                      <View style={[s.verseNumberPill, isSelected && s.verseNumberPillSelected]}>
+                      <View style={[s.verseNumberPill, { width: 28 * fontScale }, isSelected && s.verseNumberPillSelected]}>
                         <Text style={[s.verseNumberText, isSelected && s.verseNumberTextSelected]}>
                           {verse.number}
                         </Text>
                       </View>
                       <Text
+                        textBreakStrategy="highQuality"
+                        lineBreakStrategyIOS="push-out"
                         style={[
                           s.verseText,
                           {
                             fontSize: activeFont.text,
                             lineHeight: activeFont.line,
                           },
-                          isSelected && s.verseTextSelected,
                         ]}
                       >
                         {verse.text}
@@ -566,7 +622,7 @@ export function BibleScreen({
             {/* Hint footer */}
             <View style={s.readingHintBox}>
               <Text style={s.readingHintText}>
-                Touchez un verset pour le sélectionner, le copier ou le partager.
+                Touchez un verset pour le copier, le partager ou le surligner.
               </Text>
             </View>
           </View>
@@ -576,8 +632,10 @@ export function BibleScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Chapitre précédent"
-              onPress={handlePrevChapter}
-              style={({ pressed }) => [s.chapterNavFooterBtn, pressed && s.pressed]}
+              accessibilityState={{ disabled: !previousPassage }}
+              disabled={!previousPassage}
+              onPress={() => { if (previousPassage) openPassage(previousPassage); }}
+              style={({ pressed }) => [s.chapterNavFooterBtn, !previousPassage && s.disabled, pressed && s.pressed]}
             >
               <ChevronLeft size={18} color={c.action} strokeWidth={1.8} />
               <Text numberOfLines={1} style={s.chapterNavFooterBtnText}>Précédent</Text>
@@ -586,10 +644,13 @@ export function BibleScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Chapitre suivant"
-              onPress={handleNextChapter}
+              accessibilityState={{ disabled: !nextPassage }}
+              disabled={!nextPassage}
+              onPress={() => { if (nextPassage) openPassage(nextPassage); }}
               style={({ pressed }) => [
                 s.chapterNavFooterBtn,
                 s.chapterNavFooterBtnPrimary,
+                !nextPassage && s.disabled,
                 pressed && s.pressed,
               ]}
             >
@@ -700,7 +761,7 @@ export function BibleScreen({
           }
         }}
       >
-        <View style={s.modalOverlay}>
+        <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Fermer le sélecteur"
@@ -712,7 +773,7 @@ export function BibleScreen({
             accessibilityViewIsModal
             style={[
               s.modalSheet,
-              { paddingBottom: Math.max(insets.bottom, 24) },
+              { paddingBottom: Math.max(insets.bottom, 24), height: '85%' },
             ]}
           >
             {/* Sheet Handle */}
@@ -763,7 +824,7 @@ export function BibleScreen({
                     accessibilityRole="tab"
                     accessibilityLabel="Ancien Testament, 39 livres"
                     accessibilityState={{ selected: pickerTestament === 'AT' }}
-                    onPress={() => setPickerTestament('AT')}
+                    onPress={() => { setPickerSearch(''); setPickerTestament('AT'); }}
                     style={[
                       s.testamentSwitchBtn,
                       pickerTestament === 'AT' && s.testamentSwitchBtnActive,
@@ -784,7 +845,7 @@ export function BibleScreen({
                     accessibilityRole="tab"
                     accessibilityLabel="Nouveau Testament, 27 livres"
                     accessibilityState={{ selected: pickerTestament === 'NT' }}
-                    onPress={() => setPickerTestament('NT')}
+                    onPress={() => { setPickerSearch(''); setPickerTestament('NT'); }}
                     style={[
                       s.testamentSwitchBtn,
                       pickerTestament === 'NT' && s.testamentSwitchBtnActive,
@@ -808,14 +869,15 @@ export function BibleScreen({
                   <TextInput
                     value={pickerSearch}
                     onChangeText={setPickerSearch}
-                    placeholder="Rechercher un livre (ex: Jean, Ps)…"
+                    accessibilityLabel="Rechercher un livre"
+                    placeholder="Rechercher un livre"
                     placeholderTextColor={c.muted}
                     style={s.pickerSearchInput}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
                   {pickerSearch.length > 0 && (
-                    <Pressable onPress={() => setPickerSearch('')} style={s.pickerSearchClear}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Effacer la recherche de livre" onPress={() => setPickerSearch('')} style={s.pickerSearchClear}>
                       <X size={16} color={c.muted} />
                     </Pressable>
                   )}
@@ -824,9 +886,13 @@ export function BibleScreen({
                 {/* Books Scrollable List */}
                 <ScrollView
                   showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
                   style={s.booksScrollView}
                   contentContainerStyle={s.booksListContainer}
                 >
+                  {booksInPicker.length === 0 && (
+                    <Text accessibilityLiveRegion="polite" style={s.emptySearchText}>Aucun livre trouvé.</Text>
+                  )}
                   {booksInPicker.map(book => {
                     const isCurrent = book.id === selectedBookId;
                     return (
@@ -834,7 +900,7 @@ export function BibleScreen({
                         key={book.id}
                         accessibilityRole="button"
                         accessibilityLabel={`${book.name}, ${book.chaptersCount} chapitres`}
-                        onPress={() => selectBookInPicker(book)}
+                        onPress={() => { setTempBookForChapter(book); setStepInPicker('chapter'); }}
                         style={({ pressed }) => [
                           s.bookRowItem,
                           isCurrent && s.bookRowItemActive,
@@ -877,7 +943,7 @@ export function BibleScreen({
                           key={num}
                           accessibilityRole="button"
                           accessibilityLabel={`Chapitre ${num}`}
-                          onPress={() => selectChapterInPicker(num)}
+                          onPress={() => openPassage({ bookId: tempBookForChapter.id, chapter: num })}
                           style={({ pressed }) => [
                             s.chapterGridItem,
                             isCurrentChapter && s.chapterGridItemActive,
@@ -900,7 +966,7 @@ export function BibleScreen({
               </View>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -908,7 +974,7 @@ export function BibleScreen({
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: c.canvas },
-  pressed: { opacity: 0.8 },
+  pressed: { opacity: controls.pressedOpacity },
 
   /* Header */
   header: {
@@ -926,6 +992,14 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  headerWrapped: {
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  headerTitleBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   pageTitle: {
     fontFamily: fonts.bold,
@@ -952,9 +1026,9 @@ const s = StyleSheet.create({
     gap: 6,
   },
   iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: controls.touchSize,
+    height: controls.touchSize,
+    borderRadius: 24,
     backgroundColor: c.surface,
     borderWidth: 1,
     borderColor: c.divider,
@@ -966,9 +1040,9 @@ const s = StyleSheet.create({
     borderColor: c.action,
   },
   avatarBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: controls.touchSize,
+    height: controls.touchSize,
+    borderRadius: 24,
     backgroundColor: c.mint,
     borderWidth: 2,
     borderColor: 'white',
@@ -998,7 +1072,9 @@ const s = StyleSheet.create({
   tabButton: {
     flex: 1,
     minWidth: 0,
+    minHeight: controls.touchSize,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -1013,6 +1089,7 @@ const s = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 13,
     color: c.muted,
+    textAlign: 'center',
   },
   tabLabelActive: {
     color: c.action,
@@ -1034,18 +1111,23 @@ const s = StyleSheet.create({
   scrollContent: {
     paddingTop: 12,
   },
-  searchContainer: {
-    marginBottom: 12,
-  },
+  disabled: { opacity: 0.42 },
+  chapterLoading: { marginVertical: 24 },
 
   /* Selector Card */
   selectorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: c.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: c.divider,
     marginBottom: 14,
     overflow: 'hidden',
+  },
+  selectorCardStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   cardShadow: {
     shadowColor: '#17302B',
@@ -1055,15 +1137,14 @@ const s = StyleSheet.create({
     elevation: 2,
   },
   selectorTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    minHeight: controls.touchSize,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   selectorInfo: {
-    flex: 1,
-    minWidth: 0,
     marginRight: 8,
   },
   testamentBadge: {
@@ -1104,10 +1185,12 @@ const s = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: c.divider,
+    marginRight: 12,
   },
+  quickNavControlsStacked: { alignSelf: 'flex-end', marginBottom: 12 },
   navArrowBtn: {
-    width: 40,
-    height: 40,
+    width: controls.touchSize,
+    height: controls.touchSize,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1124,6 +1207,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
@@ -1153,10 +1238,12 @@ const s = StyleSheet.create({
   },
   selectionActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
   },
   selectionActionBtn: {
+    minHeight: controls.touchSize,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -1171,9 +1258,9 @@ const s = StyleSheet.create({
     color: c.action,
   },
   selectionCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: controls.touchSize,
+    height: controls.touchSize,
+    borderRadius: 24,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1209,8 +1296,10 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   chapterHeadingBox: {
-    alignItems: 'center',
     marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomColor: c.divider,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   chapterSubheading: {
     fontFamily: fonts.bold,
@@ -1223,14 +1312,6 @@ const s = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 26,
     color: c.text,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  headingDivider: {
-    width: 48,
-    height: 3,
-    backgroundColor: c.action,
-    borderRadius: 2,
   },
 
   /* Verses List */
@@ -1243,17 +1324,20 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 8,
     borderRadius: 10,
+    minHeight: controls.touchSize,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
   },
   verseRowSelected: {
     backgroundColor: '#E7F2F0',
-    borderLeftWidth: 3,
     borderLeftColor: c.action,
   },
+  verseRowHighlighted: { backgroundColor: '#FAEFD0' },
+  verseRowTarget: { borderColor: c.action, borderWidth: 1 },
   verseRowPressed: {
     backgroundColor: '#F3F7F6',
   },
   verseNumberPill: {
-    minWidth: 26,
     paddingVertical: 2,
     marginRight: 10,
     alignItems: 'center',
@@ -1262,7 +1346,6 @@ const s = StyleSheet.create({
   verseNumberPillSelected: {
     backgroundColor: c.action,
     borderRadius: 6,
-    paddingHorizontal: 4,
   },
   verseNumberText: {
     fontFamily: fonts.bold,
@@ -1276,10 +1359,6 @@ const s = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.body,
     color: c.text,
-  },
-  verseTextSelected: {
-    fontFamily: fonts.medium,
-    color: '#083B37',
   },
 
   readingHintBox: {
@@ -1524,9 +1603,9 @@ const s = StyleSheet.create({
     color: c.muted,
   },
   modalCloseBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: controls.touchSize,
+    height: controls.touchSize,
+    borderRadius: 24,
     backgroundColor: c.canvas,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1627,6 +1706,8 @@ const s = StyleSheet.create({
     backgroundColor: c.mint,
   },
   bookRowLeft: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -1654,6 +1735,7 @@ const s = StyleSheet.create({
     color: 'white',
   },
   bookRowName: {
+    flex: 1,
     fontFamily: fonts.bold,
     fontSize: 15,
     color: c.text,

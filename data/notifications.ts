@@ -1,3 +1,5 @@
+import type { BiblePassage } from './bible';
+
 export type NotificationCategory = 'breakfast' | 'community' | 'bible' | 'event';
 
 export type AppNotification = {
@@ -9,6 +11,7 @@ export type AppNotification = {
   read: boolean;
   targetScreen?: 'home' | 'breakfasts' | 'groups' | 'bible' | 'settings';
   targetId?: string;
+  biblePassage?: BiblePassage;
 };
 
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [
@@ -38,6 +41,7 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
     time: 'Il y a 4h',
     read: false,
     targetScreen: 'bible',
+    biblePassage: { bookId: 'jean', chapter: 15, verse: 5 },
   },
   {
     id: 'notif-4',

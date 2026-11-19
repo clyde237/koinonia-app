@@ -43,7 +43,7 @@ import {
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { FontSizeMode, BIBLE_FONT_SIZES } from './BibleScreen';
-import { fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, homeTheme as c } from '../lib/theme';
 
 export type SettingsScreenProps = {
   name: string;
@@ -98,7 +98,7 @@ export function SettingsScreen({
   onVerifyEmail,
   onOpenNotifications,
 }: SettingsScreenProps) {
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = width < 370;
   const gutter = compact ? 16 : 20;
@@ -148,7 +148,7 @@ export function SettingsScreen({
               <ArrowLeft size={22} color={c.text} strokeWidth={1.5} />
             </Pressable>
           )}
-          <View>
+          <View style={s.headerTitleBlock}>
             <Text accessibilityRole="header" style={s.headerTitle}>Réglages</Text>
             <Text style={s.headerSubtitle}>Profil & préférences</Text>
           </View>
@@ -329,6 +329,7 @@ export function SettingsScreen({
                 </Text>
               </View>
               <Switch
+                accessibilityLabel="Notifications du Breakfast quotidien"
                 value={breakfastNotifs}
                 onValueChange={setBreakfastNotifs}
                 trackColor={{ false: '#DFE5E4', true: c.mint }}
@@ -350,6 +351,7 @@ export function SettingsScreen({
                 </Text>
               </View>
               <Switch
+                accessibilityLabel="Notifications des communautés"
                 value={communityNotifs}
                 onValueChange={setCommunityNotifs}
                 trackColor={{ false: '#DFE5E4', true: c.mint }}
@@ -371,6 +373,7 @@ export function SettingsScreen({
                 </Text>
               </View>
               <Switch
+                accessibilityLabel="Son discret des alertes"
                 value={soundEnabled}
                 onValueChange={setSoundEnabled}
                 trackColor={{ false: '#DFE5E4', true: c.mint }}
@@ -420,24 +423,24 @@ export function SettingsScreen({
               </View>
 
               {/* Les 4 options de taille de police */}
-              <View style={s.fontSizeSelectorRow}>
+              <View accessibilityRole="radiogroup" accessibilityLabel="Taille du texte biblique" style={s.fontSizeSelectorRow}>
                 {(['small', 'medium', 'large', 'xlarge'] as FontSizeMode[]).map(mode => {
                   const active = currentBibleFontSize === mode;
                   return (
                     <Pressable
                       key={mode}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Taille ${BIBLE_FONT_SIZES[mode].label}`}
-                      accessibilityState={{ selected: active }}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`Taille ${BIBLE_FONT_SIZES[mode].text} points`}
+                      accessibilityState={{ checked: active }}
                       onPress={() => handleFontSizeChange(mode)}
                       style={({ pressed }) => [
                         s.fontSizeSelectorBtn,
+                        fontScale > 1.3 && s.fontSizeSelectorBtnWide,
                         active && s.fontSizeSelectorBtnActive,
                         pressed && s.pressed,
                       ]}
                     >
                       <Text
-                        numberOfLines={1}
                         style={[
                           s.fontSizeSelectorBtnText,
                           active && s.fontSizeSelectorBtnTextActive,
@@ -481,6 +484,7 @@ export function SettingsScreen({
                 </Text>
               </View>
               <Switch
+                accessibilityLabel="Lecture hors ligne"
                 value={offlineSync}
                 onValueChange={setOfflineSync}
                 trackColor={{ false: '#DFE5E4', true: c.mint }}
@@ -594,7 +598,7 @@ const s = StyleSheet.create({
     backgroundColor: c.canvas,
   },
   pressed: {
-    opacity: 0.8,
+    opacity: controls.pressedOpacity,
   },
 
   /* Header */
@@ -608,14 +612,17 @@ const s = StyleSheet.create({
     backgroundColor: c.canvas,
   },
   headerLeft: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
+  headerTitleBlock: { flex: 1, minWidth: 0 },
   backBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: controls.touchSize,
+    height: controls.touchSize,
+    borderRadius: 24,
     backgroundColor: c.surface,
     borderWidth: 1,
     borderColor: c.divider,
@@ -638,9 +645,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   iconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: controls.touchSize,
+    height: controls.touchSize,
+    borderRadius: 24,
     backgroundColor: c.surface,
     borderWidth: 1,
     borderColor: c.divider,
@@ -932,12 +939,15 @@ const s = StyleSheet.create({
   },
   fontSizeSelectorRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 12,
   },
   fontSizeSelectorBtn: {
     flex: 1,
     minWidth: 0,
+    minHeight: controls.touchSize,
+    paddingHorizontal: 4,
     paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
@@ -946,6 +956,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: c.divider,
   },
+  fontSizeSelectorBtnWide: { flexBasis: '44%' },
   fontSizeSelectorBtnActive: {
     backgroundColor: c.action,
     borderColor: c.action,
@@ -954,6 +965,7 @@ const s = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 13,
     color: c.text,
+    textAlign: 'center',
   },
   fontSizeSelectorBtnTextActive: {
     fontFamily: fonts.bold,

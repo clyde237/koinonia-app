@@ -23,3 +23,10 @@ export const fonts = {
   body: 'Poppins_400Regular',
   medium: 'Poppins_500Medium',
 } as const;
+
+export const controls = {
+  touchSize: 48,
+  iconStroke: 1.75,
+  pressedOpacity: 0.82,
+  photoOutline: 'rgba(0,0,0,0.1)',
+} as const;
