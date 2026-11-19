@@ -52,6 +52,7 @@ import {
 import { loadBibleHighlights, loadBiblePosition, saveBibleHighlights, saveBiblePosition } from '../lib/bible-library';
 import { controls, fonts, homeTheme as c } from '../lib/theme';
 import { BibleSearch } from './BibleSearch';
+import { FiligraneWatermark } from './FiligraneWatermark';
 
 export type FontSizeMode = 'small' | 'medium' | 'large' | 'xlarge';
 
@@ -306,6 +307,7 @@ export function BibleScreen({
 
   return (
     <View style={s.root}>
+      <FiligraneWatermark opacity={0.2} />
       {/* Top Header */}
       <View style={[s.header, fontScale > 1.3 && s.headerWrapped, { paddingHorizontal: gutter }]}>
         <View style={s.headerLeft}>

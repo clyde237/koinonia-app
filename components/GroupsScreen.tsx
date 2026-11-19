@@ -34,6 +34,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { SearchBar } from './SearchBar';
+import { FiligraneWatermark } from './FiligraneWatermark';
 import {
   initialCommunities,
   type Community,
@@ -223,6 +224,7 @@ export function GroupsScreen({
 
     return (
       <View style={s.root}>
+        <FiligraneWatermark opacity={0.2} />
         <View style={s.grow}>
           {/* Header du Chat */}
           <View style={s.chatHeader}>
@@ -459,6 +461,7 @@ export function GroupsScreen({
   // --- RENDU : PAGE PRINCIPALE DES COMMUNAUTÉS ---
   return (
     <View style={s.root}>
+      <FiligraneWatermark opacity={0.2} />
       <View style={s.grow}>
         <ScrollView
           showsVerticalScrollIndicator={false}

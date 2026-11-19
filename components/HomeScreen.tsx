@@ -24,6 +24,7 @@ import { GroupsScreen } from './GroupsScreen';
 import { BIBLE_FONT_SIZES, BibleScreen, type FontSizeMode } from './BibleScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { NotificationsMenu } from './NotificationsMenu';
+import { FiligraneWatermark } from './FiligraneWatermark';
 import { INITIAL_NOTIFICATIONS, type AppNotification } from '../data/notifications';
 
 type Props = {
@@ -230,6 +231,7 @@ export function HomeScreen(props: Props) {
 
   return (
     <View style={s.root}>
+      <FiligraneWatermark opacity={0.2} />
       <StatusBar style="dark" />
       <SafeAreaView edges={['top', 'left', 'right']} style={s.grow}>
         <BlurTargetView ref={blurTarget} style={s.grow}>
@@ -428,6 +430,7 @@ export function HomeScreen(props: Props) {
           <View accessibilityRole="tablist" style={s.navRow}>
             {tabs.map(tab => {
               const selected = currentScreen === tab.id;
+              const circleSize = Math.min(Math.floor((navWidth - 8) / 5) - 4, 58);
               return (
                 <Pressable
                   key={tab.label}
@@ -455,10 +458,22 @@ export function HomeScreen(props: Props) {
                   }}
                   style={({ pressed }) => [s.navItem, pressed && s.pressed]}
                 >
-                  <View style={[s.navIcon, selected && s.navIconSelected]}>
-                    <tab.icon size={22} color={selected ? c.action : c.text} strokeWidth={controls.iconStroke} />
-                  </View>
-                  <Text style={[s.navLabel, selected && s.navLabelSelected]}>{tab.label}</Text>
+                  {selected && (
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        s.navActiveCircle,
+                        {
+                          width: circleSize,
+                          height: circleSize,
+                          borderRadius: circleSize / 2,
+                          top: Math.round((62 - circleSize) / 2),
+                        },
+                      ]}
+                    />
+                  )}
+                  <tab.icon size={21} color={selected ? c.action : c.text} strokeWidth={controls.iconStroke} />
+                  <Text numberOfLines={1} style={[s.navLabel, selected && s.navLabelSelected]}>{tab.label}</Text>
                 </Pressable>
               );
             })}
@@ -611,12 +626,11 @@ const s = StyleSheet.create({
   navShell: { position: 'absolute', maxWidth: 560, alignSelf: 'center', borderRadius: 36, borderWidth: 1, borderColor: '#FFFFFF', shadowColor: '#504330', shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
   navHidden: { opacity: 0, pointerEvents: 'none' },
   navGlass: { borderRadius: 36, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.92)' },
-  navRow: { flexDirection: 'row', alignItems: 'stretch', padding: 4 },
-  navItem: { flex: 1, minWidth: controls.touchSize, minHeight: 60, paddingHorizontal: 1, paddingVertical: 6, alignItems: 'center', gap: 4 },
-  navIcon: { width: 40, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  navIconSelected: { backgroundColor: c.mint },
-  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 11, lineHeight: 15, color: c.text, textAlign: 'center' },
-  navLabelSelected: { color: c.action },
+  navRow: { flexDirection: 'row', alignItems: 'center', padding: 4 },
+  navItem: { flex: 1, minWidth: controls.touchSize, height: 62, alignItems: 'center', justifyContent: 'center', gap: 3, position: 'relative' },
+  navActiveCircle: { position: 'absolute', backgroundColor: c.mint, alignSelf: 'center' },
+  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 9.5, lineHeight: 13, color: c.text, textAlign: 'center' },
+  navLabelSelected: { color: c.action, fontFamily: fonts.bold },
   pressed: { opacity: controls.pressedOpacity },
   modalRoot: { flex: 1, justifyContent: 'flex-end' }, scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(17,26,42,0.45)' },
   sheet: { backgroundColor: c.canvas, borderTopLeftRadius: 32, borderTopRightRadius: 32, width: '100%', maxWidth: 600, alignSelf: 'center', overflow: 'hidden' },

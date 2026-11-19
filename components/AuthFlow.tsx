@@ -13,6 +13,7 @@ import { loadAccountProfile, saveAccountProfile, uploadAccountPhoto, deleteAccou
 import { Country, COUNTRIES, DEFAULT_COUNTRY, findCountryByName, findCountryByDialCode } from '../data/countries';
 import { CountryPickerModal } from './CountryPickerModal';
 import { PhoneInput } from './PhoneInput';
+import { FiligraneWatermark } from './FiligraneWatermark';
 import { controls } from '../lib/theme';
 
 type Colors = {
@@ -447,6 +448,7 @@ export function AuthFlow({ colors }: Props) {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <FiligraneWatermark opacity={0.2} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView key={screen + step} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, screen === 'onboarding' && styles.onboardingContent]}>
           {screen === 'login' || screen === 'register' ? (

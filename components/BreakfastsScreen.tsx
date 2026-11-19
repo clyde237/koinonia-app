@@ -35,6 +35,7 @@ import {
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { SearchBar } from './SearchBar';
+import { FiligraneWatermark } from './FiligraneWatermark';
 import {
   allBreakfasts,
   dailyFeaturedBreakfast,
@@ -187,6 +188,7 @@ export function BreakfastsScreen({
 
     return (
       <View style={s.root}>
+        <FiligraneWatermark opacity={0.2} />
         <View style={s.grow}>
           {/* Header du détail */}
           <View style={s.detailHeader}>
@@ -459,6 +461,7 @@ export function BreakfastsScreen({
   // --- RENDU : PAGE PRINCIPALE BREAKFASTS ---
   return (
     <View style={s.root}>
+      <FiligraneWatermark opacity={0.2} />
       <View style={s.grow}>
         <ScrollView
           ref={feedRef}

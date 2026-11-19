@@ -44,6 +44,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { FontSizeMode, BIBLE_FONT_SIZES } from './BibleScreen';
 import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { FiligraneWatermark } from './FiligraneWatermark';
 
 export type SettingsScreenProps = {
   name: string;
@@ -135,6 +136,7 @@ export function SettingsScreen({
 
   return (
     <View style={s.root}>
+      <FiligraneWatermark opacity={0.2} />
       {/* Top Header Bar */}
       <View style={[s.header, { paddingHorizontal: gutter }]}>
         <View style={s.headerLeft}>
