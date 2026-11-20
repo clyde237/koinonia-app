@@ -104,7 +104,6 @@ export const BottomNav = memo(function BottomNav({
 
   return (
     <View
-      accessibilityRole="navigation"
       accessibilityLabel="Navigation principale"
       onLayout={e => onLayoutHeight?.(e.nativeEvent.layout.height)}
       importantForAccessibility={isHidden ? 'no-hide-descendants' : 'auto'}
