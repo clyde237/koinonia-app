@@ -47,7 +47,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",
-    "test:bible": "node --test --test-isolation=none tests/bible.test.cjs"
+    "test:bible": "node --test --test-isolation=none tests/bible.test.cjs",
+    "test:theme": "node --test --test-isolation=none tests/theme.test.cjs",
+    "test": "npm run test:bible && npm run test:theme"
   },
   "private": true
 }

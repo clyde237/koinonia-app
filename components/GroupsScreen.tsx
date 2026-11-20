@@ -25,10 +25,12 @@ import {
   Info,
   Lock,
   MessageSquare,
+  Moon,
   Search,
   Send,
   Shield,
   Sparkles,
+  Sun,
   UserPlus,
   Users,
   X,
@@ -40,7 +42,8 @@ import {
   type Community,
   type CommunityMessage,
 } from '../data/communities';
-import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 
 type Props = {
   onBack?: () => void;
@@ -61,6 +64,8 @@ export function GroupsScreen({
   navHeight = 80,
   onDetailOpenChange,
 }: Props) {
+  const { isDark, colors: c, toggleTheme } = useTheme();
+  const s = useMemo(() => createGroupsStyles(c, isDark), [c, isDark]);
   const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = width < 370;
@@ -491,6 +496,19 @@ export function GroupsScreen({
             </View>
 
             <View style={s.headerActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
+                onPress={toggleTheme}
+                style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
+              >
+                {isDark ? (
+                  <Sun size={21} color={c.action} strokeWidth={controls.iconStroke} />
+                ) : (
+                  <Moon size={21} color={c.text} strokeWidth={controls.iconStroke} />
+                )}
+              </Pressable>
+
               {onOpenNotifications && (
                 <Pressable
                   accessibilityRole="button"
@@ -783,7 +801,8 @@ export function GroupsScreen({
   );
 }
 
-const s = StyleSheet.create({
+function createGroupsStyles(c: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: c.canvas,
@@ -828,14 +847,14 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: c.divider,
+    borderColor: isDark ? c.moonlightBorder : c.divider,
   },
   searchContainer: {
     marginBottom: 16,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#EAE6DC',
+    backgroundColor: isDark ? c.surfaceRaised : '#EAE6DC',
     borderRadius: 28,
     padding: 4,
     marginBottom: 16,
@@ -1443,4 +1462,5 @@ const s = StyleSheet.create({
   pressed: {
     opacity: controls.pressedOpacity,
   },
-});
+  });
+}

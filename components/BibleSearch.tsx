@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import {
@@ -14,7 +14,8 @@ import {
   type BiblePassage,
   type BibleVerse,
 } from '../data/bible';
-import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 import { SearchBar } from './SearchBar';
 
 type Props = {
@@ -34,6 +35,8 @@ function referenceFor({ bookId, chapter, verse }: BiblePassage) {
 }
 
 export function BibleSearch({ book, chapter, verses, inset, onOpen }: Props) {
+  const { isDark, colors: c } = useTheme();
+  const s = useMemo(() => createBibleSearchStyles(c, isDark), [c, isDark]);
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<'bible' | 'chapter'>('bible');
   const [page, setPage] = useState<SearchPage>();
@@ -143,15 +146,16 @@ export function BibleSearch({ book, chapter, verses, inset, onOpen }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+function createBibleSearchStyles(c: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: c.surface },
-  controls: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.divider },
+  controls: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: isDark ? c.moonlightBorder : c.divider },
   scopes: { flexDirection: 'row', gap: 8, marginTop: 10 },
   scope: {
     flex: 1,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: c.canvas,
+    backgroundColor: isDark ? c.surfaceRaised : c.canvas,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 38,
@@ -168,10 +172,11 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: c.divider,
+    borderBottomColor: isDark ? c.moonlightBorder : c.divider,
     minHeight: controls.touchSize,
   },
   rowBody: { flex: 1, marginRight: 12 },
   reference: { fontFamily: fonts.bold, fontSize: 15, color: c.text, marginBottom: 2 },
   snippet: { fontFamily: fonts.body, fontSize: 13, color: c.muted, lineHeight: 18 },
-});
+  });
+}
