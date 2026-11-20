@@ -53,3 +53,37 @@ test('navtab glassmorphism uses BlurView with opaque blurTarget to prevent white
   // Splashscreen maintains official flame emblem
   assert.ok(appSrc.includes('FlameEmblem'), 'App splashscreen must keep official FlameEmblem');
 });
+
+test('AppHeader and BottomNav shared components enforce clean architecture and single-line titles', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+
+  // AppHeader exists and is used across screens
+  const headerSrc = fs.readFileSync(path.join(__dirname, '../components/AppHeader.tsx'), 'utf-8');
+  assert.ok(headerSrc.includes('export const AppHeader'), 'AppHeader must be exported');
+  assert.ok(headerSrc.includes('numberOfLines={1}'), 'AppHeader must constrain title to 1 line');
+
+  const bibleSrc = fs.readFileSync(path.join(__dirname, '../components/BibleScreen.tsx'), 'utf-8');
+  const breakfastsSrc = fs.readFileSync(path.join(__dirname, '../components/BreakfastsScreen.tsx'), 'utf-8');
+  const groupsSrc = fs.readFileSync(path.join(__dirname, '../components/GroupsScreen.tsx'), 'utf-8');
+  const settingsSrc = fs.readFileSync(path.join(__dirname, '../components/SettingsScreen.tsx'), 'utf-8');
+  const homeSrc = fs.readFileSync(path.join(__dirname, '../components/HomeScreen.tsx'), 'utf-8');
+
+  assert.ok(bibleSrc.includes('<AppHeader'), 'BibleScreen must use AppHeader');
+  assert.ok(breakfastsSrc.includes('<AppHeader'), 'BreakfastsScreen must use AppHeader');
+  assert.ok(groupsSrc.includes('<AppHeader'), 'GroupsScreen must use AppHeader');
+  assert.ok(settingsSrc.includes('<AppHeader'), 'SettingsScreen must use AppHeader');
+  assert.ok(homeSrc.includes('<AppHeader'), 'HomeScreen must use AppHeader');
+
+  // BottomNav exists and is isolated
+  const bottomNavSrc = fs.readFileSync(path.join(__dirname, '../components/BottomNav.tsx'), 'utf-8');
+  assert.ok(bottomNavSrc.includes('export const BottomNav'), 'BottomNav must be exported');
+  assert.ok(bottomNavSrc.includes('NAV_TABS'), 'BottomNav must export NAV_TABS');
+  assert.ok(homeSrc.includes('<BottomNav'), 'HomeScreen must use BottomNav');
+
+  // BibleScreen selection bar is compact icon-only with dynamic theme colors
+  assert.ok(bibleSrc.includes('compactSelectionBar'), 'BibleScreen must use compactSelectionBar');
+  assert.ok(bibleSrc.includes("isDark ? '#FFFFFF' : '#131F33'"), 'compactSelectionBar must invert colors (white in dark, midnight in light)');
+  assert.ok(bibleSrc.includes('verseRowSelected'), 'BibleScreen must configure verseRowSelected');
+  assert.ok(bibleSrc.includes('verseRowHighlighted'), 'BibleScreen must configure verseRowHighlighted');
+});

@@ -24,9 +24,13 @@ import { BreakfastsScreen } from './BreakfastsScreen';
 import { GroupsScreen } from './GroupsScreen';
 import { BIBLE_FONT_SIZES, BibleScreen, type FontSizeMode } from './BibleScreen';
 import { SettingsScreen } from './SettingsScreen';
+import { AppHeader } from './AppHeader';
+import { BottomNav, NavGlassContainer } from './BottomNav';
 import { NotificationsMenu } from './NotificationsMenu';
 import { FiligraneWatermark } from './FiligraneWatermark';
 import { INITIAL_NOTIFICATIONS, type AppNotification } from '../data/notifications';
+
+export { NavGlassContainer };
 
 type Props = {
   readerId: string;
@@ -75,52 +79,7 @@ function FlameWatermark() {
   );
 }
 
-/**
- * Capsule de navigation à effet verre dépoli (Glassmorphism).
- * - Utilise BlurView nativement avec blurTarget sur Android et iOS.
- * - Le blurTarget possède un fond opaque (c.canvas) et englobe le filigrane,
- *   ce qui garantit que le canevas n'a aucune zone transparente et ne blanchit jamais.
- * - Liseré spéculaire fin en haut de la capsule pour le reflet verre taillé.
- */
-function NavGlassContainer({
-  isDark,
-  c,
-  blurTarget,
-  style,
-  reduceTransparency,
-  children,
-}: {
-  isDark: boolean;
-  c: ThemeColors;
-  blurTarget: any;
-  style?: any;
-  reduceTransparency?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <BlurView
-      blurTarget={blurTarget}
-      blurMethod="dimezisBlurView"
-      intensity={isDark ? 65 : 75}
-      tint={isDark ? 'dark' : 'light'}
-      style={[style, reduceTransparency && { backgroundColor: c.surface }]}
-    >
-      {/* Reflet spéculaire fin en haut de la capsule (effet biseau de verre dépoli) */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 18,
-          right: 18,
-          height: 1,
-          backgroundColor: isDark ? 'rgba(78, 234, 216, 0.32)' : 'rgba(255, 255, 255, 0.85)',
-        }}
-      />
-      {children}
-    </BlurView>
-  );
-}
+
 
 export function HomeScreen(props: Props) {
   const { isDark, colors: c, toggleTheme } = useTheme();
@@ -291,41 +250,15 @@ export function HomeScreen(props: Props) {
               style={{ backgroundColor: 'transparent' }}
               contentContainerStyle={[s.feed, { paddingHorizontal: gutter, paddingBottom: navHeight + bottom + 32 }]}
             >
-            <View style={s.header}>
-              <Image
-                source={isDark ? require('../assets/logo-koinonia_w.png') : require('../assets/logo-koinonia.png')}
-                resizeMode="contain"
-                accessibilityLabel="Koinonia"
-                style={[s.logo, compact && { width: 148 }]}
-              />
-              <View style={s.headerActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
-                  onPress={toggleTheme}
-                  style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-                >
-                  {isDark ? (
-                    <Sun size={23} color={c.action} strokeWidth={controls.iconStroke} />
-                  ) : (
-                    <Moon size={23} color={c.text} strokeWidth={controls.iconStroke} />
-                  )}
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Notifications, ${unreadNotifCount > 0 ? `${unreadNotifCount} nouvelles` : 'aucune nouvelle'}`}
-                  onPress={() => setIsNotifMenuOpen(true)}
-                  style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-                >
-                  <Bell size={24} color={c.text} strokeWidth={1.5} />
-                  {unreadNotifCount > 0 && <View style={s.bellBadge} />}
-                </Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir mes réglages et mon profil" onPress={() => setCurrentScreen('settings')} style={({ pressed }) => [s.avatar, pressed && s.pressed]}>
-                  {props.profilePhoto ? <Image source={{ uri: props.profilePhoto, headers: props.photoHeaders }} style={s.avatarImage} /> : <Text style={s.initials}>{initials}</Text>}
-                </Pressable>
-              </View>
-            </View>
+            <AppHeader
+              variant="logo"
+              onOpenNotifications={() => setIsNotifMenuOpen(true)}
+              unreadNotifCount={unreadNotifCount}
+              onOpenProfile={() => setCurrentScreen('settings')}
+              profilePhoto={props.profilePhoto ?? undefined}
+              photoHeaders={props.photoHeaders}
+              profileInitials={initials}
+            />
 
             <View style={s.welcome}>
               <Text style={s.greeting}>Bonjour, {firstName}</Text>
@@ -443,7 +376,6 @@ export function HomeScreen(props: Props) {
             readerId={props.readerId}
             initialPassage={bibleOpening.passage}
             onBack={() => setCurrentScreen('home')}
-            onOpenProfile={() => setCurrentScreen('settings')}
             onOpenNotifications={() => setIsNotifMenuOpen(true)}
             navHeight={navHeight}
             fontSizeMode={bibleFontSize}
@@ -480,78 +412,34 @@ export function HomeScreen(props: Props) {
         </BlurTargetView>
       </SafeAreaView>
 
-      <View
-        onLayout={event => {
-          const h = event.nativeEvent.layout.height;
+      <BottomNav
+        currentTab={currentScreen}
+        onSelectTab={tab => {
+          if (tab === 'home') {
+            if (currentScreen === 'home') {
+              feed.current?.scrollTo({ y: 0, animated: false });
+            } else {
+              setCurrentScreen('home');
+            }
+          } else if (tab === 'breakfasts') {
+            setSelectedBreakfastId(undefined);
+            setCurrentScreen('breakfasts');
+          } else if (tab === 'groups') {
+            setSelectedGroupId(undefined);
+            setCurrentScreen('groups');
+          } else if (tab === 'bible') {
+            openBible();
+          } else if (tab === 'settings') {
+            setCurrentScreen('settings');
+          }
+        }}
+        blurTarget={blurTarget}
+        reduceTransparency={reduceTransparency}
+        isHidden={sheet !== null || isDetailOpen}
+        onLayoutHeight={h => {
           if (h > 0) setNavHeight(h);
         }}
-        pointerEvents={(sheet !== null || isDetailOpen) ? 'none' : 'auto'}
-        accessibilityElementsHidden={sheet !== null || isDetailOpen}
-        importantForAccessibility={(sheet !== null || isDetailOpen) ? 'no-hide-descendants' : 'auto'}
-        style={[
-          s.navShell,
-          { width: navWidth, left: (width - navWidth) / 2, bottom },
-          (sheet !== null || isDetailOpen) && s.navHidden,
-        ]}
-      >
-        <NavGlassContainer isDark={isDark} c={c} blurTarget={blurTarget} style={s.navGlass} reduceTransparency={reduceTransparency}>
-          <View accessibilityRole="tablist" style={s.navRow}>
-            {tabs.map(tab => {
-              const selected = currentScreen === tab.id;
-              const circleSize = Math.min(Math.floor((navWidth - 8) / 5) - 4, 58);
-              return (
-                <Pressable
-                  key={tab.label}
-                  accessibilityRole="tab"
-                  accessibilityLabel={tab.label}
-                  accessibilityState={{ selected }}
-                  onPress={() => {
-                    if (tab.id === 'home') {
-                      if (currentScreen === 'home') {
-                        feed.current?.scrollTo({ y: 0, animated: false });
-                      } else {
-                        setCurrentScreen('home');
-                      }
-                    } else if (tab.id === 'breakfasts') {
-                      setSelectedBreakfastId(undefined);
-                      setCurrentScreen('breakfasts');
-                    } else if (tab.id === 'groups') {
-                      setSelectedGroupId(undefined);
-                      setCurrentScreen('groups');
-                    } else if (tab.id === 'bible') {
-                      openBible();
-                    } else if (tab.id === 'settings') {
-                      setCurrentScreen('settings');
-                    }
-                  }}
-                  style={({ pressed }) => [s.navItem, pressed && s.pressed]}
-                >
-                  {selected && (
-                    <View
-                      pointerEvents="none"
-                      style={[
-                        s.navActiveCircle,
-                        {
-                          width: circleSize,
-                          height: circleSize,
-                          borderRadius: circleSize / 2,
-                          top: Math.round((62 - circleSize) / 2),
-                        },
-                      ]}
-                    />
-                  )}
-                  <tab.icon
-                    size={21}
-                    color={selected ? c.action : (isDark ? '#96A9C0' : c.muted)}
-                    strokeWidth={controls.iconStroke}
-                  />
-                  <Text numberOfLines={1} style={[s.navLabel, selected && s.navLabelSelected]}>{tab.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </NavGlassContainer>
-      </View>
+      />
 
       <Modal
         visible={sheet !== null}
