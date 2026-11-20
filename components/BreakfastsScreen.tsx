@@ -36,6 +36,7 @@ import {
   X,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
+import { AppHeader } from './AppHeader';
 import { SearchBar } from './SearchBar';
 import { FiligraneWatermark } from './FiligraneWatermark';
 import {
@@ -476,51 +477,14 @@ export function BreakfastsScreen({
             { paddingHorizontal: gutter, paddingBottom: navHeight + insets.bottom + 36 },
           ]}
         >
-          {/* En-tête de la page */}
-          <View style={s.headerRow}>
-            {onBack ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Retour à l’accueil"
-                onPress={onBack}
-                style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-              >
-                <ArrowLeft size={22} color={c.text} strokeWidth={2} />
-              </Pressable>
-            ) : null}
-            <View style={s.titleBlock}>
-              <Text accessibilityRole="header" style={s.pageTitle}>
-                Breakfasts
-              </Text>
-              <Text style={s.pageSubtitle}>Méditations quotidiennes</Text>
-            </View>
-
-            <View style={s.headerActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
-                onPress={toggleTheme}
-                style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-              >
-                {isDark ? (
-                  <Sun size={21} color={c.action} strokeWidth={controls.iconStroke} />
-                ) : (
-                  <Moon size={21} color={c.text} strokeWidth={controls.iconStroke} />
-                )}
-              </Pressable>
-
-              {onOpenNotifications && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Ouvrir les notifications"
-                  onPress={onOpenNotifications}
-                  style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-                >
-                  <Bell size={22} color={c.text} strokeWidth={1.5} />
-                </Pressable>
-              )}
-            </View>
-          </View>
+          {/* En-tête unifié de la page */}
+          <AppHeader
+            title="Breakfasts"
+            subtitle="Méditations quotidiennes"
+            onBack={onBack}
+            backAccessibilityLabel="Retour à l’accueil"
+            onOpenNotifications={onOpenNotifications}
+          />
 
           {/* Composant de recherche dédié */}
           <View style={s.searchContainer}>

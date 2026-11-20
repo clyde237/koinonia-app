@@ -35,6 +35,7 @@ import {
   Users,
   X,
 } from 'lucide-react-native';
+import { AppHeader } from './AppHeader';
 import { SearchBar } from './SearchBar';
 import { FiligraneWatermark } from './FiligraneWatermark';
 import {
@@ -475,52 +476,14 @@ export function GroupsScreen({
             { paddingHorizontal: gutter, paddingBottom: navHeight + insets.bottom + 36 },
           ]}
         >
-          {/* En-tête */}
-          <View style={s.headerRow}>
-            {onBack ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Retour à l’accueil"
-                onPress={onBack}
-                style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-              >
-                <ArrowLeft size={22} color={c.text} strokeWidth={2} />
-              </Pressable>
-            ) : null}
-
-            <View style={s.titleBlock}>
-              <Text accessibilityRole="header" style={s.pageTitle}>
-                Communautés
-              </Text>
-              <Text style={s.pageSubtitle}>Prière fraternelle et partage</Text>
-            </View>
-
-            <View style={s.headerActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
-                onPress={toggleTheme}
-                style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-              >
-                {isDark ? (
-                  <Sun size={21} color={c.action} strokeWidth={controls.iconStroke} />
-                ) : (
-                  <Moon size={21} color={c.text} strokeWidth={controls.iconStroke} />
-                )}
-              </Pressable>
-
-              {onOpenNotifications && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Ouvrir les notifications"
-                  onPress={onOpenNotifications}
-                  style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-                >
-                  <Bell size={22} color={c.text} strokeWidth={1.5} />
-                </Pressable>
-              )}
-            </View>
-          </View>
+          {/* En-tête unifié de la page */}
+          <AppHeader
+            title="Communautés"
+            subtitle="Prière fraternelle et partage"
+            onBack={onBack}
+            backAccessibilityLabel="Retour à l’accueil"
+            onOpenNotifications={onOpenNotifications}
+          />
 
           {/* Barre de recherche dédiée */}
           <View style={s.searchContainer}>

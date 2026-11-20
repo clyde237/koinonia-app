@@ -44,6 +44,7 @@ import {
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { FontSizeMode, BIBLE_FONT_SIZES } from './BibleScreen';
+import { AppHeader } from './AppHeader';
 import { controls, fonts, type ThemeColors } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
 import { FiligraneWatermark } from './FiligraneWatermark';
@@ -141,50 +142,15 @@ export function SettingsScreen({
   return (
     <View style={s.root}>
       <FiligraneWatermark opacity={0.15} />
-      {/* Top Header Bar */}
-      <View style={[s.header, { paddingHorizontal: gutter }]}>
-        <View style={s.headerLeft}>
-          {onBack && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Retour à l'accueil"
-              onPress={onBack}
-              style={({ pressed }) => [s.backBtn, pressed && s.pressed]}
-            >
-              <ArrowLeft size={22} color={c.text} strokeWidth={1.5} />
-            </Pressable>
-          )}
-          <View style={s.headerTitleBlock}>
-            <Text accessibilityRole="header" style={s.headerTitle}>Réglages</Text>
-            <Text style={s.headerSubtitle}>Profil & préférences</Text>
-          </View>
-        </View>
-
-        <View style={s.headerRight}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
-            onPress={toggleTheme}
-            style={({ pressed }) => [s.iconBtn, pressed && s.pressed]}
-          >
-            {isDark ? (
-              <Sun size={21} color={c.action} strokeWidth={controls.iconStroke} />
-            ) : (
-              <Moon size={21} color={c.text} strokeWidth={controls.iconStroke} />
-            )}
-          </Pressable>
-          {onOpenNotifications && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Ouvrir les notifications"
-              onPress={onOpenNotifications}
-              style={({ pressed }) => [s.iconBtn, pressed && s.pressed]}
-            >
-              <Bell size={21} color={c.text} strokeWidth={1.5} />
-            </Pressable>
-          )}
-        </View>
-      </View>
+      {/* Top Header Bar unifié */}
+      <AppHeader
+        title="Réglages"
+        subtitle="Profil & préférences"
+        onBack={onBack}
+        backAccessibilityLabel="Retour à l'accueil"
+        onOpenNotifications={onOpenNotifications}
+        style={{ paddingHorizontal: gutter }}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

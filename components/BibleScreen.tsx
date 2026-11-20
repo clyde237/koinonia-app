@@ -22,7 +22,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
-  Bell,
   BookOpen,
   Check,
   ChevronDown,
@@ -30,12 +29,10 @@ import {
   ChevronRight,
   Copy,
   Highlighter,
-  Moon,
   Music,
   Search,
   Share2,
   Sparkles,
-  Sun,
   X,
 } from 'lucide-react-native';
 import {
@@ -54,6 +51,7 @@ import {
 import { loadBibleHighlights, loadBiblePosition, saveBibleHighlights, saveBiblePosition } from '../lib/bible-library';
 import { controls, fonts, type ThemeColors } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
+import { AppHeader } from './AppHeader';
 import { BibleSearch } from './BibleSearch';
 import { FiligraneWatermark } from './FiligraneWatermark';
 
@@ -313,82 +311,21 @@ export function BibleScreen({
   return (
     <View style={s.root}>
       <FiligraneWatermark opacity={0.15} />
-      {/* Top Header */}
-      <View style={[s.header, fontScale > 1.3 && s.headerWrapped, { paddingHorizontal: gutter }]}>
-        <View style={s.headerLeft}>
-          {onBack && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isSearchVisible ? 'Retour à la lecture' : 'Retour'}
-              onPress={goBack}
-              style={({ pressed }) => [s.iconBtn, pressed && s.pressed]}
-            >
-              <ArrowLeft size={22} color={c.text} strokeWidth={1.5} />
-            </Pressable>
-          )}
-          <View style={s.headerTitleBlock}>
-            <Text accessibilityRole="header" style={s.pageTitle}>La Bible</Text>
-            <View style={s.versionTag}>
-              <Text style={s.versionTagText}>Louis Segond 1910</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={s.headerRight}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
-            onPress={toggleTheme}
-            style={({ pressed }) => [s.iconBtn, pressed && s.pressed]}
-          >
-            {isDark ? (
-              <Sun size={20} color={c.action} strokeWidth={1.5} />
-            ) : (
-              <Moon size={20} color={c.text} strokeWidth={1.5} />
-            )}
-          </Pressable>
-
-          {activeTab === 'bible' && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isSearchVisible ? 'Fermer la recherche de versets' : 'Rechercher un verset'}
-              accessibilityState={{ expanded: isSearchVisible, disabled: !activeChapter }}
-              disabled={!activeChapter}
-              onPress={() => { setSelectedVerses([]); setIsSearchVisible(prev => !prev); }}
-              style={({ pressed }) => [
-                s.iconBtn,
-                isSearchVisible && s.iconBtnActive,
-                !activeChapter && s.disabled,
-                pressed && s.pressed,
-              ]}
-            >
-              <Search size={20} color={isSearchVisible ? c.action : c.text} strokeWidth={1.5} />
-            </Pressable>
-          )}
-
-          {onOpenNotifications && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              onPress={onOpenNotifications}
-              style={({ pressed }) => [s.iconBtn, pressed && s.pressed]}
-            >
-              <Bell size={20} color={c.text} strokeWidth={1.5} />
-            </Pressable>
-          )}
-
-          {onOpenProfile && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Mon profil"
-              onPress={onOpenProfile}
-              style={({ pressed }) => [s.avatarBtn, pressed && s.pressed]}
-            >
-              <Text style={s.avatarInitials}>K</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
+      {/* Top Header unifié */}
+      <AppHeader
+        title="La Bible"
+        badgeLabel="LSG 1910"
+        onBack={onBack ? goBack : undefined}
+        backAccessibilityLabel={isSearchVisible ? 'Retour à la lecture' : 'Retour'}
+        searchAction={activeTab === 'bible' ? {
+          active: isSearchVisible,
+          onPress: () => { setSelectedVerses([]); setIsSearchVisible(prev => !prev); },
+          accessibilityLabel: isSearchVisible ? 'Fermer la recherche de versets' : 'Rechercher un verset',
+          disabled: !activeChapter,
+        } : undefined}
+        onOpenNotifications={onOpenNotifications}
+        style={{ paddingHorizontal: gutter }}
+      />
 
       {/* Main Tabs: « Bible » & « Cantiques » */}
       <View style={[s.tabBarContainer, { paddingHorizontal: gutter }]}>
@@ -434,37 +371,42 @@ export function BibleScreen({
 
       {activeTab === 'bible' && !isSearchVisible && (selectedVerses.length > 0 || notice) && (
         <View style={{ paddingHorizontal: gutter }}>
-          {/* Verses Selection Bar (Contextual) */}
+          {/* Verses Selection Bar (Capsule Flottante Épurée Icon-only) */}
           {selectedVerses.length > 0 && (
-            <View style={[s.selectionBar, s.cardShadow]}>
-              <View style={s.selectionInfo}>
-                <View style={s.selectionCountBadge}>
-                  <Text style={s.selectionCountText}>{selectedVerses.length}</Text>
+            <View style={s.selectionBarWrapper}>
+              <View style={[s.compactSelectionBar, s.floatingBarShadow]}>
+                <View style={s.selectionCounterBadge}>
+                  <Text style={s.selectionCounterText}>{selectedVerses.length}</Text>
                 </View>
-                <Text style={s.selectionLabel}>
-                  {selectedVerses.length === 1 ? 'Verset sélectionné' : 'Versets sélectionnés'}
-                </Text>
-              </View>
 
-              <View style={s.selectionActions}>
+                <View style={s.barDivider} />
+
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Copier les versets sélectionnés"
+                  hitSlop={6}
                   onPress={handleCopySelected}
-                  style={({ pressed }) => [s.selectionActionBtn, pressed && s.pressed]}
+                  style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
                 >
-                  <Copy size={17} color={c.action} strokeWidth={1.5} />
-                  <Text style={s.selectionActionBtnText}>Copier</Text>
+                  <Copy
+                    size={18}
+                    color={isDark ? '#131F33' : '#FFFFFF'}
+                    strokeWidth={1.8}
+                  />
                 </Pressable>
 
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Partager les versets sélectionnés"
+                  hitSlop={6}
                   onPress={handleShareSelected}
-                  style={({ pressed }) => [s.selectionActionBtn, pressed && s.pressed]}
+                  style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
                 >
-                  <Share2 size={17} color={c.action} strokeWidth={1.5} />
-                  <Text style={s.selectionActionBtnText}>Partager</Text>
+                  <Share2
+                    size={18}
+                    color={isDark ? '#131F33' : '#FFFFFF'}
+                    strokeWidth={1.8}
+                  />
                 </Pressable>
 
                 <Pressable
@@ -472,20 +414,35 @@ export function BibleScreen({
                   accessibilityLabel={allHighlighted ? 'Retirer le surlignage' : 'Surligner les versets sélectionnés'}
                   accessibilityState={{ busy: savingHighlights, disabled: savingHighlights }}
                   disabled={savingHighlights}
+                  hitSlop={6}
                   onPress={handleHighlightSelected}
-                  style={({ pressed }) => [s.selectionActionBtn, pressed && s.pressed]}
+                  style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
                 >
-                  <Highlighter size={17} color={c.action} strokeWidth={1.5} />
-                  <Text style={s.selectionActionBtnText}>{allHighlighted ? 'Retirer' : 'Surligner'}</Text>
+                  <Highlighter
+                    size={18}
+                    color={
+                      allHighlighted
+                        ? (isDark ? '#008276' : '#4EEAD8')
+                        : (isDark ? '#131F33' : '#FFFFFF')
+                    }
+                    strokeWidth={1.8}
+                  />
                 </Pressable>
+
+                <View style={s.barDivider} />
 
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Désélectionner tout"
+                  hitSlop={6}
                   onPress={() => setSelectedVerses([])}
-                  style={({ pressed }) => [s.selectionCloseBtn, pressed && s.pressed]}
+                  style={({ pressed }) => [s.barCloseBtn, pressed && s.pressed]}
                 >
-                  <X size={18} color={c.muted} strokeWidth={1.5} />
+                  <X
+                    size={18}
+                    color={isDark ? '#64748B' : '#94A3B8'}
+                    strokeWidth={1.8}
+                  />
                 </Pressable>
               </View>
             </View>
@@ -1007,75 +964,6 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     borderBottomColor: isDark ? c.moonlightBorder : c.divider,
     backgroundColor: c.canvas,
   },
-  headerLeft: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerWrapped: {
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  headerTitleBlock: {
-    flex: 1,
-    minWidth: 0,
-  },
-  pageTitle: {
-    fontFamily: fonts.bold,
-    fontSize: 20,
-    lineHeight: 24,
-    color: c.text,
-  },
-  versionTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: c.mint,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginTop: 2,
-  },
-  versionTagText: {
-    fontFamily: fonts.medium,
-    fontSize: 10,
-    color: c.action,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  iconBtn: {
-    width: controls.touchSize,
-    height: controls.touchSize,
-    borderRadius: 24,
-    backgroundColor: c.surface,
-    borderWidth: 1,
-    borderColor: c.divider,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBtnActive: {
-    backgroundColor: c.mint,
-    borderColor: c.action,
-  },
-  avatarBtn: {
-    width: controls.touchSize,
-    height: controls.touchSize,
-    borderRadius: 24,
-    backgroundColor: c.mint,
-    borderWidth: 2,
-    borderColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitials: {
-    fontFamily: fonts.heading,
-    fontSize: 15,
-    color: c.action,
-  },
-
   /* Top tabs (Bible vs Cantiques) */
   tabBarContainer: {
     paddingTop: 10,
@@ -1224,71 +1112,64 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     backgroundColor: c.divider,
   },
 
-  /* Verses Selection Bar */
-  selectionBar: {
-    backgroundColor: c.action,
+  /* Verses Selection Bar (Capsule Flottante Épurée) */
+  selectionBarWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  compactSelectionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    backgroundColor: isDark ? '#FFFFFF' : '#131F33',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(78, 234, 216, 0.25)',
+    gap: 8,
+  },
+  floatingBarShadow: {
+    shadowColor: isDark ? '#000000' : '#0B1320',
+    shadowOpacity: isDark ? 0.35 : 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  selectionCounterBadge: {
+    backgroundColor: isDark ? '#EEF2F6' : 'rgba(255, 255, 255, 0.16)',
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionCounterText: {
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    color: isDark ? '#131F33' : '#FFFFFF',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  barDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: isDark ? '#E2E8F0' : 'rgba(255, 255, 255, 0.16)',
+  },
+  barIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  barCloseBtn: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  selectionInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  selectionCountBadge: {
-    backgroundColor: 'white',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  selectionCountText: {
-    fontFamily: fonts.bold,
-    fontSize: 13,
-    color: c.action,
-  },
-  selectionLabel: {
-    fontFamily: fonts.medium,
-    fontSize: 13,
-    color: 'white',
-  },
-  selectionActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-  },
-  selectionActionBtn: {
-    minHeight: controls.touchSize,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'white',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  selectionActionBtnText: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: c.action,
-  },
-  selectionCloseBtn: {
-    width: controls.touchSize,
-    height: controls.touchSize,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
   },
 
   /* Toast Notification */
@@ -1353,13 +1234,17 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     borderLeftColor: 'transparent',
   },
   verseRowSelected: {
-    backgroundColor: '#E7F2F0',
-    borderLeftColor: c.action,
+    backgroundColor: isDark ? 'rgba(78, 234, 216, 0.16)' : 'rgba(0, 169, 157, 0.12)',
+    borderLeftColor: isDark ? '#4EEAD8' : c.action,
   },
-  verseRowHighlighted: { backgroundColor: '#FAEFD0' },
+  verseRowHighlighted: {
+    backgroundColor: isDark ? 'rgba(247, 202, 115, 0.18)' : '#FEF3C7',
+    borderLeftColor: isDark ? '#F7CA73' : '#D97706',
+    borderLeftWidth: 3,
+  },
   verseRowTarget: { borderColor: c.action, borderWidth: 1 },
   verseRowPressed: {
-    backgroundColor: '#F3F7F6',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
   },
   verseNumberPill: {
     paddingVertical: 2,
@@ -1368,7 +1253,7 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     justifyContent: 'center',
   },
   verseNumberPillSelected: {
-    backgroundColor: c.action,
+    backgroundColor: isDark ? '#4EEAD8' : c.action,
     borderRadius: 6,
   },
   verseNumberText: {
@@ -1377,7 +1262,7 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     color: c.action,
   },
   verseNumberTextSelected: {
-    color: 'white',
+    color: isDark ? c.onHeroAction : 'white',
   },
   verseText: {
     flex: 1,
