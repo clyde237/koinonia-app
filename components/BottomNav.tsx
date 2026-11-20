@@ -1,32 +1,15 @@
-import React, { memo, type ReactNode } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+/** @jsxImportSource react */
+import { memo, useMemo, type ComponentProps } from 'react';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import {
-  BookOpen,
-  CirclePlay,
-  Home,
-  Settings,
-  Users,
-} from 'lucide-react-native';
+import { BookOpen, CirclePlay, Home, Settings, Users } from 'lucide-react-native';
 import { controls, fonts, type ThemeColors } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
 
 export type NavTabId = 'home' | 'breakfasts' | 'groups' | 'bible' | 'settings';
 
-export interface NavTabItem {
-  id: NavTabId;
-  label: string;
-  icon: typeof Home;
-}
-
-export const NAV_TABS: readonly NavTabItem[] = [
+export const NAV_TABS = [
   { id: 'home', label: 'Accueil', icon: Home },
   { id: 'breakfasts', label: 'Breakfasts', icon: CirclePlay },
   { id: 'groups', label: 'Groupes', icon: Users },
@@ -34,52 +17,12 @@ export const NAV_TABS: readonly NavTabItem[] = [
   { id: 'settings', label: 'Réglages', icon: Settings },
 ] as const;
 
-export interface NavGlassContainerProps {
-  isDark: boolean;
-  c: ThemeColors;
-  blurTarget: any;
-  style?: any;
-  reduceTransparency?: boolean;
-  children: ReactNode;
-}
-
-export function NavGlassContainer({
-  isDark,
-  c,
-  blurTarget,
-  style,
-  reduceTransparency,
-  children,
-}: NavGlassContainerProps) {
-  return (
-    <BlurView
-      blurTarget={blurTarget}
-      blurMethod="dimezisBlurView"
-      intensity={isDark ? 65 : 75}
-      tint={isDark ? 'dark' : 'light'}
-      style={[style, reduceTransparency && { backgroundColor: c.surface }]}
-    >
-      {/* Reflet spéculaire fin en haut de la capsule (effet biseau de verre dépoli) */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 18,
-          right: 18,
-          height: 1,
-          backgroundColor: isDark ? 'rgba(78, 234, 216, 0.32)' : 'rgba(255, 255, 255, 0.85)',
-        }}
-      />
-      {children}
-    </BlurView>
-  );
-}
+export const bottomNavOffset = (bottomInset: number) => Math.max(12, bottomInset + 8);
 
 export interface BottomNavProps {
   currentTab: NavTabId;
   onSelectTab: (tab: NavTabId) => void;
-  blurTarget?: any;
+  blurTarget?: ComponentProps<typeof BlurView>['blurTarget'];
   reduceTransparency?: boolean;
   isHidden?: boolean;
   onLayoutHeight?: (height: number) => void;
@@ -94,36 +37,39 @@ export const BottomNav = memo(function BottomNav({
   onLayoutHeight,
 }: BottomNavProps) {
   const { isDark, colors: c } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const compact = width < 370;
-  const gutter = compact ? 16 : 20;
-  const navWidth = Math.min(width - (compact ? 16 : 2 * gutter), 560);
-  const bottom = Math.max(insets.bottom, 12);
-  const s = createNavStyles(c, isDark);
+  const gutter = width < 370 ? 12 : 20;
+  const availableWidth = width - insets.left - insets.right;
+  const navWidth = Math.min(availableWidth - 2 * gutter, 560);
+  const bottom = bottomNavOffset(insets.bottom);
+  const canBlur = !reduceTransparency && (Platform.OS === 'ios'
+    || (Platform.OS === 'android' && Number(Platform.Version) >= 31 && Boolean(blurTarget)));
+  const s = useMemo(() => createNavStyles(c, isDark), [c, isDark]);
 
   return (
     <View
-      accessibilityLabel="Navigation principale"
-      onLayout={e => onLayoutHeight?.(e.nativeEvent.layout.height)}
+      pointerEvents={isHidden ? 'none' : 'auto'}
+      accessibilityElementsHidden={isHidden}
       importantForAccessibility={isHidden ? 'no-hide-descendants' : 'auto'}
-      style={[
-        s.navShell,
-        { width: navWidth, left: (width - navWidth) / 2, bottom },
-        isHidden && s.navHidden,
-      ]}
+      onLayout={event => onLayoutHeight?.(event.nativeEvent.layout.height)}
+      style={[s.shell, { width: navWidth, left: insets.left + (availableWidth - navWidth) / 2, bottom }, isHidden && s.hidden]}
     >
-      <NavGlassContainer
-        isDark={isDark}
-        c={c}
-        blurTarget={blurTarget}
-        style={s.navGlass}
-        reduceTransparency={reduceTransparency}
-      >
-        <View accessibilityRole="tablist" style={s.navRow}>
+      <View style={[s.surface, !canBlur && s.opaque]}>
+        {canBlur && !isHidden && (
+          <BlurView
+            pointerEvents="none"
+            blurTarget={blurTarget}
+            blurMethod="dimezisBlurViewSdk31Plus"
+            intensity={55}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, canBlur && s.tint]} />
+        <View accessibilityRole="tablist" accessibilityLabel="Navigation principale" style={s.row}>
           {NAV_TABS.map(tab => {
             const selected = currentTab === tab.id;
-            const circleSize = Math.min(Math.floor((navWidth - 8) / 5) - 4, 58);
             return (
               <Pressable
                 key={tab.id}
@@ -131,30 +77,16 @@ export const BottomNav = memo(function BottomNav({
                 accessibilityLabel={tab.label}
                 accessibilityState={{ selected }}
                 onPress={() => onSelectTab(tab.id)}
-                style={({ pressed }) => [s.navItem, pressed && s.pressed]}
+                style={({ pressed }) => [s.item, pressed && s.pressed]}
               >
-                {selected && (
-                  <View
-                    pointerEvents="none"
-                    style={[
-                      s.navActiveCircle,
-                      {
-                        width: circleSize,
-                        height: circleSize,
-                        borderRadius: circleSize / 2,
-                        top: Math.round((62 - circleSize) / 2),
-                      },
-                    ]}
-                  />
-                )}
-                <tab.icon
-                  size={21}
-                  color={selected ? c.action : (isDark ? '#96A9C0' : c.muted)}
-                  strokeWidth={controls.iconStroke}
-                />
+                <View pointerEvents="none" style={[s.indicator, selected && s.indicatorSelected]}>
+                  <tab.icon size={24} color={selected ? c.action : c.muted} strokeWidth={selected ? 2 : controls.iconStroke} />
+                </View>
                 <Text
-                  numberOfLines={1}
-                  style={[s.navLabel, selected && s.navLabelSelected]}
+                  numberOfLines={fontScale > 1.2 ? undefined : 1}
+                  adjustsFontSizeToFit={fontScale <= 1.2}
+                  minimumFontScale={0.75}
+                  style={[s.label, selected && s.labelSelected]}
                 >
                   {tab.label}
                 </Text>
@@ -162,72 +94,42 @@ export const BottomNav = memo(function BottomNav({
             );
           })}
         </View>
-      </NavGlassContainer>
+      </View>
     </View>
   );
 });
 
 function createNavStyles(c: ThemeColors, isDark: boolean) {
   return StyleSheet.create({
-    navShell: {
+    shell: {
       position: 'absolute',
-      maxWidth: 560,
-      alignSelf: 'center',
-      borderRadius: 36,
-      borderWidth: 1.2,
-      borderColor: c.navBorder,
-      shadowColor: isDark ? '#000000' : '#504330',
-      shadowOpacity: isDark ? 0.45 : 0.12,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 10,
+      borderRadius: 28,
+      shadowColor: c.cardShadow,
+      shadowOpacity: isDark ? 0.38 : 0.16,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 8,
     },
-    navHidden: {
-      opacity: 0,
-      pointerEvents: 'none',
-    },
-    navGlass: {
-      borderRadius: 36,
-      overflow: 'hidden',
-      backgroundColor: c.navGlass,
-    },
-    navRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 4,
-    },
-    navItem: {
-      flex: 1,
-      minWidth: controls.touchSize,
-      height: 62,
+    hidden: { opacity: 0 },
+    surface: { borderRadius: 28, overflow: 'hidden', borderWidth: 1, borderColor: isDark ? c.moonlightBorder : c.divider },
+    opaque: { backgroundColor: c.surface },
+    tint: { backgroundColor: c.navGlass },
+    row: { flexDirection: 'row', alignItems: 'stretch', paddingHorizontal: 4, paddingVertical: 5 },
+    item: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+      minWidth: 0,
+      minHeight: 62,
       alignItems: 'center',
       justifyContent: 'center',
+      paddingVertical: 3,
       gap: 3,
-      position: 'relative',
     },
-    navActiveCircle: {
-      position: 'absolute',
-      backgroundColor: c.mint,
-      alignSelf: 'center',
-      borderWidth: isDark ? 1 : 0,
-      borderColor: isDark ? 'rgba(78, 234, 216, 0.35)' : 'transparent',
-    },
-    navLabel: {
-      width: '100%',
-      fontFamily: fonts.heading,
-      fontSize: 9.5,
-      lineHeight: 13,
-      color: isDark ? '#96A9C0' : c.muted,
-      textAlign: 'center',
-      textAlignVertical: 'center',
-      includeFontPadding: false,
-    },
-    navLabelSelected: {
-      color: c.action,
-      fontFamily: fonts.bold,
-    },
-    pressed: {
-      opacity: controls.pressedOpacity,
-    },
+    indicator: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    indicatorSelected: { backgroundColor: c.mint },
+    label: { width: '100%', fontFamily: fonts.heading, fontSize: 11, color: c.muted, textAlign: 'center', includeFontPadding: false },
+    labelSelected: { color: c.action, fontFamily: fonts.bold },
+    pressed: { opacity: controls.pressedOpacity },
   });
 }

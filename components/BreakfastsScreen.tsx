@@ -51,6 +51,7 @@ type Props = {
   onBack?: () => void;
   onOpenProfile?: () => void;
   onOpenNotifications?: () => void;
+  unreadNotifCount?: number;
   initialTab?: 'watch' | 'read';
   initialBreakfastId?: string;
   navHeight?: number;
@@ -77,6 +78,7 @@ export function BreakfastsScreen({
   onBack,
   onOpenProfile,
   onOpenNotifications,
+  unreadNotifCount,
   initialTab = 'watch',
   initialBreakfastId,
   navHeight = 80,
@@ -484,6 +486,7 @@ export function BreakfastsScreen({
             onBack={onBack}
             backAccessibilityLabel="Retour à l’accueil"
             onOpenNotifications={onOpenNotifications}
+            unreadNotifCount={unreadNotifCount}
           />
 
           {/* Composant de recherche dédié */}

@@ -68,6 +68,7 @@ type Props = {
   onBack?: () => void;
   onOpenProfile?: () => void;
   onOpenNotifications?: () => void;
+  unreadNotifCount?: number;
   readerId?: string;
   initialPassage?: BiblePassage;
   navHeight?: number;
@@ -86,6 +87,7 @@ export function BibleScreen({
   onBack,
   onOpenProfile,
   onOpenNotifications,
+  unreadNotifCount,
   readerId = 'default_reader',
   initialPassage,
   navHeight = 80,
@@ -324,6 +326,7 @@ export function BibleScreen({
           disabled: !activeChapter,
         } : undefined}
         onOpenNotifications={onOpenNotifications}
+        unreadNotifCount={unreadNotifCount}
         style={{ paddingHorizontal: gutter }}
       />
 
@@ -375,21 +378,14 @@ export function BibleScreen({
           {selectedVerses.length > 0 && (
             <View style={s.selectionBarWrapper}>
               <View style={[s.compactSelectionBar, s.floatingBarShadow]}>
-                <View style={s.selectionCounterBadge}>
-                  <Text style={s.selectionCounterText}>{selectedVerses.length}</Text>
-                </View>
-
-                <View style={s.barDivider} />
-
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Copier les versets sélectionnés"
-                  hitSlop={6}
                   onPress={handleCopySelected}
                   style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
                 >
                   <Copy
-                    size={18}
+                    size={21}
                     color={isDark ? '#131F33' : '#FFFFFF'}
                     strokeWidth={1.8}
                   />
@@ -398,12 +394,11 @@ export function BibleScreen({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Partager les versets sélectionnés"
-                  hitSlop={6}
                   onPress={handleShareSelected}
                   style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
                 >
                   <Share2
-                    size={18}
+                    size={21}
                     color={isDark ? '#131F33' : '#FFFFFF'}
                     strokeWidth={1.8}
                   />
@@ -414,12 +409,11 @@ export function BibleScreen({
                   accessibilityLabel={allHighlighted ? 'Retirer le surlignage' : 'Surligner les versets sélectionnés'}
                   accessibilityState={{ busy: savingHighlights, disabled: savingHighlights }}
                   disabled={savingHighlights}
-                  hitSlop={6}
                   onPress={handleHighlightSelected}
                   style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
                 >
                   <Highlighter
-                    size={18}
+                    size={21}
                     color={
                       allHighlighted
                         ? (isDark ? '#008276' : '#4EEAD8')
@@ -429,17 +423,14 @@ export function BibleScreen({
                   />
                 </Pressable>
 
-                <View style={s.barDivider} />
-
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Désélectionner tout"
-                  hitSlop={6}
                   onPress={() => setSelectedVerses([])}
-                  style={({ pressed }) => [s.barCloseBtn, pressed && s.pressed]}
+                  style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
                 >
                   <X
-                    size={18}
+                    size={21}
                     color={isDark ? '#64748B' : '#94A3B8'}
                     strokeWidth={1.8}
                   />
@@ -569,7 +560,7 @@ export function BibleScreen({
                         isHighlighted && s.verseRowHighlighted,
                         isTarget && s.verseRowTarget,
                         isSelected && s.verseRowSelected,
-                        pressed && s.verseRowPressed,
+                        pressed && !isSelected && !isHighlighted && s.verseRowPressed,
                       ]}
                     >
                       <View style={[s.verseNumberPill, { width: 28 * fontScale }, isSelected && s.verseNumberPillSelected]}>
@@ -1121,13 +1112,12 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
   compactSelectionBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 44,
-    borderRadius: 22,
-    paddingHorizontal: 12,
+    borderRadius: 25,
+    paddingHorizontal: 4,
     backgroundColor: isDark ? '#FFFFFF' : '#131F33',
     borderWidth: 1,
     borderColor: isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(78, 234, 216, 0.25)',
-    gap: 8,
+    gap: 2,
   },
   floatingBarShadow: {
     shadowColor: isDark ? '#000000' : '#0B1320',
@@ -1136,38 +1126,9 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  selectionCounterBadge: {
-    backgroundColor: isDark ? '#EEF2F6' : 'rgba(255, 255, 255, 0.16)',
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectionCounterText: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: isDark ? '#131F33' : '#FFFFFF',
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
-  barDivider: {
-    width: 1,
-    height: 18,
-    backgroundColor: isDark ? '#E2E8F0' : 'rgba(255, 255, 255, 0.16)',
-  },
   barIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  barCloseBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: controls.touchSize,
+    height: controls.touchSize,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1234,11 +1195,11 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     borderLeftColor: 'transparent',
   },
   verseRowSelected: {
-    backgroundColor: isDark ? 'rgba(78, 234, 216, 0.16)' : 'rgba(0, 169, 157, 0.12)',
+    backgroundColor: c.verseSelected,
     borderLeftColor: isDark ? '#4EEAD8' : c.action,
   },
   verseRowHighlighted: {
-    backgroundColor: isDark ? 'rgba(247, 202, 115, 0.18)' : '#FEF3C7',
+    backgroundColor: c.verseHighlighted,
     borderLeftColor: isDark ? '#F7CA73' : '#D97706',
     borderLeftWidth: 3,
   },

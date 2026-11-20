@@ -25,12 +25,11 @@ import { GroupsScreen } from './GroupsScreen';
 import { BIBLE_FONT_SIZES, BibleScreen, type FontSizeMode } from './BibleScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { AppHeader } from './AppHeader';
-import { BottomNav, NavGlassContainer } from './BottomNav';
+import { BottomNav, bottomNavOffset } from './BottomNav';
 import { NotificationsMenu } from './NotificationsMenu';
 import { FiligraneWatermark } from './FiligraneWatermark';
 import { INITIAL_NOTIFICATIONS, type AppNotification } from '../data/notifications';
 
-export { NavGlassContainer };
 
 type Props = {
   readerId: string;
@@ -119,7 +118,7 @@ export function HomeScreen(props: Props) {
   const blurTarget = useRef<ComponentRef<typeof View> | null>(null);
   const firstName = props.name.trim().split(/\s+/)[0] || 'à vous';
   const initials = props.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase() || 'K';
-  const bottom = Math.max(insets.bottom, 12);
+  const bottom = bottomNavOffset(insets.bottom);
 
   useEffect(() => {
     let active = true;
@@ -356,6 +355,7 @@ export function HomeScreen(props: Props) {
             onBack={() => setCurrentScreen('home')}
             onOpenProfile={() => setCurrentScreen('settings')}
             onOpenNotifications={() => setIsNotifMenuOpen(true)}
+            unreadNotifCount={unreadNotifCount}
             initialTab={breakfastInitialTab}
             initialBreakfastId={selectedBreakfastId}
             navHeight={navHeight}
@@ -366,6 +366,7 @@ export function HomeScreen(props: Props) {
             onBack={() => setCurrentScreen('home')}
             onOpenProfile={() => setCurrentScreen('settings')}
             onOpenNotifications={() => setIsNotifMenuOpen(true)}
+            unreadNotifCount={unreadNotifCount}
             initialGroupId={selectedGroupId}
             navHeight={navHeight}
             onDetailOpenChange={setIsDetailOpen}
@@ -377,6 +378,7 @@ export function HomeScreen(props: Props) {
             initialPassage={bibleOpening.passage}
             onBack={() => setCurrentScreen('home')}
             onOpenNotifications={() => setIsNotifMenuOpen(true)}
+            unreadNotifCount={unreadNotifCount}
             navHeight={navHeight}
             fontSizeMode={bibleFontSize}
             onDetailOpenChange={setIsDetailOpen}
@@ -407,6 +409,7 @@ export function HomeScreen(props: Props) {
             onEditProfile={props.onEditProfile}
             onVerifyEmail={props.onVerifyEmail}
             onOpenNotifications={() => setIsNotifMenuOpen(true)}
+            unreadNotifCount={unreadNotifCount}
           />
         )}
         </BlurTargetView>
@@ -583,14 +586,6 @@ function createStyles(c: ThemeColors, isDark: boolean) {
   eventMeta: { fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: c.muted },
   library: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 20 }, libraryTitle: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.text },
   demoNote: { fontFamily: fonts.body, fontSize: 10, lineHeight: 16, color: c.muted, textAlign: 'center', marginTop: 4 },
-  navShell: { position: 'absolute', maxWidth: 560, alignSelf: 'center', borderRadius: 36, borderWidth: 1.2, borderColor: c.navBorder, shadowColor: isDark ? '#000000' : '#504330', shadowOpacity: isDark ? 0.45 : 0.12, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 10 },
-  navHidden: { opacity: 0, pointerEvents: 'none' },
-  navGlass: { borderRadius: 36, overflow: 'hidden', backgroundColor: c.navGlass },
-  navRow: { flexDirection: 'row', alignItems: 'center', padding: 4 },
-  navItem: { flex: 1, minWidth: controls.touchSize, height: 62, alignItems: 'center', justifyContent: 'center', gap: 3, position: 'relative' },
-  navActiveCircle: { position: 'absolute', backgroundColor: c.mint, alignSelf: 'center', borderWidth: isDark ? 1 : 0, borderColor: isDark ? 'rgba(78, 234, 216, 0.35)' : 'transparent' },
-  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 9.5, lineHeight: 13, color: isDark ? '#96A9C0' : c.muted, textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false },
-  navLabelSelected: { color: c.action, fontFamily: fonts.bold },
   pressed: { opacity: controls.pressedOpacity },
   modalRoot: { flex: 1, justifyContent: 'flex-end' }, scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(5,9,16,0.65)' },
   sheet: { backgroundColor: isDark ? c.surfaceRaised : c.canvas, borderTopLeftRadius: 32, borderTopRightRadius: 32, width: '100%', maxWidth: 600, alignSelf: 'center', overflow: 'hidden' },

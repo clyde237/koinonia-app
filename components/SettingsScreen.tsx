@@ -74,6 +74,7 @@ export type SettingsScreenProps = {
   onEditProfile: () => void;
   onVerifyEmail: () => void;
   onOpenNotifications?: () => void;
+  unreadNotifCount?: number;
 };
 
 export function SettingsScreen({
@@ -101,6 +102,7 @@ export function SettingsScreen({
   onEditProfile,
   onVerifyEmail,
   onOpenNotifications,
+  unreadNotifCount,
 }: SettingsScreenProps) {
   const { isDark, colors: c, toggleTheme, mode, setMode } = useTheme();
   const s = useMemo(() => createSettingsStyles(c, isDark), [c, isDark]);
@@ -149,6 +151,7 @@ export function SettingsScreen({
         onBack={onBack}
         backAccessibilityLabel="Retour à l'accueil"
         onOpenNotifications={onOpenNotifications}
+        unreadNotifCount={unreadNotifCount}
         style={{ paddingHorizontal: gutter }}
       />
 
