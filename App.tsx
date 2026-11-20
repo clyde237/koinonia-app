@@ -44,13 +44,9 @@ function MainApp() {
     return () => { clearTimeout(timer); slide.stopAnimation(); };
   }, [reduced, slide]);
 
-  const logoSource = isDark
-    ? require('./assets/logo-koinonia_w.png')
-    : require('./assets/logo-koinonia.png');
-
   return (
-    <View style={[styles.root, { backgroundColor: colors.canvas }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+    <View style={[styles.root, { backgroundColor: screen === 'splash' ? '#F7F5F0' : colors.canvas }]}>
+      <StatusBar style={screen === 'splash' ? 'dark' : (isDark ? 'light' : 'dark')} />
       {screen !== 'login' && (
         <Animated.View
           accessibilityElementsHidden={screen === 'transition'}
@@ -58,34 +54,21 @@ function MainApp() {
             styles.screen,
             styles.center,
             {
-              backgroundColor: colors.canvas,
+              backgroundColor: '#F7F5F0',
               transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, -width] }) }],
             },
           ]}
         >
-          <View
-            style={[
-              styles.brandPanel,
-              {
-                backgroundColor: isDark ? colors.surface : '#F7F5F0',
-                borderColor: isDark ? colors.moonlightBorder : 'transparent',
-                borderWidth: isDark ? 1 : 0,
-              },
-            ]}
-          >
-            {isDark ? (
-              <Image
-                source={require('./assets/logo-koinonia_w1.png')}
-                style={{ width: 150, height: 157 }}
-                resizeMode="contain"
-                accessibilityLabel="Emblème Koinonia"
-              />
-            ) : (
-              <FlameEmblem active={screen === 'splash' && !reduced} />
-            )}
-            <Image source={logoSource} style={styles.wordmark} resizeMode="contain" accessibilityLabel="Koinonia" />
+          <View style={styles.brandPanel}>
+            <FlameEmblem active={screen === 'splash' && !reduced} />
+            <Image
+              source={require('./assets/logo-koinonia.png')}
+              style={styles.wordmark}
+              resizeMode="contain"
+              accessibilityLabel="Koinonia"
+            />
           </View>
-          <Text style={[styles.tagline, { color: colors.text }]}>Communion avec le Saint-Esprit</Text>
+          <Text style={[styles.tagline, { color: '#2A364E' }]}>Communion avec le Saint-Esprit</Text>
         </Animated.View>
       )}
       {screen !== 'splash' && (

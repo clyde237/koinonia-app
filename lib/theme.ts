@@ -50,7 +50,7 @@ export const lightTheme: ThemeColors = {
   inputBg: '#FFFFFF',
   badgeBg: '#DBECE9',
   badgeText: '#006B65',
-  navGlass: 'rgba(255, 255, 255, 0.88)',
+  navGlass: 'rgba(255, 255, 255, 0.82)',
   navBorder: 'rgba(255, 255, 255, 0.95)',
 };
 
@@ -81,7 +81,7 @@ export const darkTheme: ThemeColors = {
   inputBg: '#182740',
   badgeBg: '#183C45',
   badgeText: '#4EEAD8',
-  navGlass: 'rgba(19, 31, 51, 0.88)', // Flou verre bleu nuit
+  navGlass: 'rgba(19, 31, 51, 0.75)', // Flou verre bleu nuit translucide
   navBorder: 'rgba(78, 234, 216, 0.25)', // Bordure effet verre lunaire
 };
 
