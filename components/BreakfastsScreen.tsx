@@ -223,7 +223,7 @@ export function BreakfastsScreen({
               >
                 <CirclePlay
                   size={15}
-                  color={activeMode === 'watch' ? '#FFFFFF' : c.muted}
+                  color={activeMode === 'watch' ? (isDark ? c.onHeroAction : '#FFFFFF') : c.muted}
                   strokeWidth={2}
                 />
                 <Text
@@ -248,7 +248,7 @@ export function BreakfastsScreen({
               >
                 <BookOpen
                   size={15}
-                  color={activeMode === 'read' ? '#FFFFFF' : c.muted}
+                  color={activeMode === 'read' ? (isDark ? c.onHeroAction : '#FFFFFF') : c.muted}
                   strokeWidth={2}
                 />
                 <Text
@@ -547,7 +547,7 @@ export function BreakfastsScreen({
             >
               <CirclePlay
                 size={18}
-                color={activeMode === 'watch' ? '#FFFFFF' : c.muted}
+                color={activeMode === 'watch' ? (isDark ? c.onHeroAction : '#FFFFFF') : c.muted}
                 strokeWidth={2}
               />
               <Text
@@ -573,7 +573,7 @@ export function BreakfastsScreen({
             >
               <BookOpen
                 size={18}
-                color={activeMode === 'read' ? '#FFFFFF' : c.muted}
+                color={activeMode === 'read' ? (isDark ? c.onHeroAction : '#FFFFFF') : c.muted}
                 strokeWidth={2}
               />
               <Text
@@ -875,6 +875,7 @@ function createBreakfastStyles(c: ThemeColors, isDark: boolean) {
   },
   tabsContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: isDark ? c.surfaceRaised : '#EAE6DC',
     borderRadius: 28,
     padding: 4,
@@ -884,12 +885,12 @@ function createBreakfastStyles(c: ThemeColors, isDark: boolean) {
     flex: 1,
     minHeight: controls.touchSize,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
     gap: 8,
-    padding: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   modeTabActive: {
     backgroundColor: c.action,
@@ -897,11 +898,14 @@ function createBreakfastStyles(c: ThemeColors, isDark: boolean) {
   modeTabLabel: {
     fontFamily: fonts.medium,
     fontSize: 14,
+    lineHeight: 19,
     color: c.muted,
     textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   modeTabLabelActive: {
-    color: '#FFFFFF',
+    color: isDark ? c.onHeroAction : '#FFFFFF',
     fontFamily: fonts.heading,
   },
   chipScroller: {
@@ -914,6 +918,7 @@ function createBreakfastStyles(c: ThemeColors, isDark: boolean) {
   },
   categoryChip: {
     minHeight: controls.touchSize,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -929,7 +934,10 @@ function createBreakfastStyles(c: ThemeColors, isDark: boolean) {
   categoryChipText: {
     fontFamily: fonts.medium,
     fontSize: 13,
+    lineHeight: 18,
     color: c.muted,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   categoryChipTextActive: {
     color: c.action,
@@ -1190,15 +1198,17 @@ function createBreakfastStyles(c: ThemeColors, isDark: boolean) {
   },
   detailSegment: {
     flexDirection: 'row',
-    backgroundColor: '#EAE6DC',
+    alignItems: 'center',
+    backgroundColor: isDark ? c.surfaceRaised : '#EAE6DC',
     borderRadius: 20,
     padding: 3,
   },
   detailSegmentTab: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 18,
     gap: 6,
   },
@@ -1208,10 +1218,14 @@ function createBreakfastStyles(c: ThemeColors, isDark: boolean) {
   detailSegmentText: {
     fontFamily: fonts.medium,
     fontSize: 12,
+    lineHeight: 16,
     color: c.muted,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   detailSegmentTextActive: {
-    color: '#FFFFFF',
+    color: isDark ? c.onHeroAction : '#FFFFFF',
     fontFamily: fonts.heading,
   },
   detailScroll: {

@@ -547,7 +547,7 @@ export function GroupsScreen({
             >
               <Users
                 size={18}
-                color={activeTab === 'my-groups' ? '#FFFFFF' : c.muted}
+                color={activeTab === 'my-groups' ? (isDark ? c.onHeroAction : '#FFFFFF') : c.muted}
                 strokeWidth={2}
               />
               <Text
@@ -573,7 +573,7 @@ export function GroupsScreen({
             >
               <Sparkles
                 size={18}
-                color={activeTab === 'discover' ? '#FFFFFF' : c.muted}
+                color={activeTab === 'discover' ? (isDark ? c.onHeroAction : '#FFFFFF') : c.muted}
                 strokeWidth={2}
               />
               <Text
@@ -854,6 +854,7 @@ function createGroupsStyles(c: ThemeColors, isDark: boolean) {
   },
   tabsContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: isDark ? c.surfaceRaised : '#EAE6DC',
     borderRadius: 28,
     padding: 4,
@@ -863,12 +864,12 @@ function createGroupsStyles(c: ThemeColors, isDark: boolean) {
     flex: 1,
     minHeight: controls.touchSize,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
     gap: 8,
-    padding: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   modeTabActive: {
     backgroundColor: c.action,
@@ -876,11 +877,14 @@ function createGroupsStyles(c: ThemeColors, isDark: boolean) {
   modeTabLabel: {
     fontFamily: fonts.medium,
     fontSize: 13,
+    lineHeight: 18,
     color: c.muted,
     textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   modeTabLabelActive: {
-    color: '#FFFFFF',
+    color: isDark ? c.onHeroAction : '#FFFFFF',
     fontFamily: fonts.heading,
   },
   chipScroller: {
@@ -893,6 +897,7 @@ function createGroupsStyles(c: ThemeColors, isDark: boolean) {
   },
   categoryChip: {
     minHeight: controls.touchSize,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -908,7 +913,10 @@ function createGroupsStyles(c: ThemeColors, isDark: boolean) {
   categoryChipText: {
     fontFamily: fonts.medium,
     fontSize: 13,
+    lineHeight: 18,
     color: c.muted,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   categoryChipTextActive: {
     color: c.action,

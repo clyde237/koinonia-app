@@ -1083,6 +1083,7 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
   },
   tabBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: c.surface,
     borderRadius: 14,
     padding: 4,
@@ -1095,12 +1096,11 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     minWidth: 0,
     minHeight: controls.touchSize,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 9,
-    paddingHorizontal: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: 10,
   },
   tabButtonActive: {
@@ -1109,8 +1109,11 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
   tabLabel: {
     fontFamily: fonts.medium,
     fontSize: 13,
+    lineHeight: 18,
     color: c.muted,
     textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   tabLabelActive: {
     color: c.action,
@@ -1649,6 +1652,7 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
   },
   testamentSwitchRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: 20,
     backgroundColor: c.canvas,
     borderRadius: 12,
@@ -1661,10 +1665,12 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
   testamentSwitchBtn: {
     flex: 1,
     minWidth: 0,
-    paddingVertical: 9,
-    paddingHorizontal: 8,
+    minHeight: 40,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     borderRadius: 10,
   },
   testamentSwitchBtnActive: {
@@ -1673,11 +1679,15 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
   testamentSwitchBtnText: {
     fontFamily: fonts.medium,
     fontSize: 13,
+    lineHeight: 18,
     color: c.muted,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   testamentSwitchBtnTextActive: {
     fontFamily: fonts.bold,
-    color: 'white',
+    color: isDark ? c.onHeroAction : 'white',
   },
 
   pickerSearchBox: {

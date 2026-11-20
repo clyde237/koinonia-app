@@ -701,7 +701,7 @@ function createStyles(c: ThemeColors, isDark: boolean) {
   navRow: { flexDirection: 'row', alignItems: 'center', padding: 4 },
   navItem: { flex: 1, minWidth: controls.touchSize, height: 62, alignItems: 'center', justifyContent: 'center', gap: 3, position: 'relative' },
   navActiveCircle: { position: 'absolute', backgroundColor: c.mint, alignSelf: 'center', borderWidth: isDark ? 1 : 0, borderColor: isDark ? 'rgba(78, 234, 216, 0.35)' : 'transparent' },
-  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 9.5, lineHeight: 13, color: isDark ? '#96A9C0' : c.muted, textAlign: 'center' },
+  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 9.5, lineHeight: 13, color: isDark ? '#96A9C0' : c.muted, textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false },
   navLabelSelected: { color: c.action, fontFamily: fonts.bold },
   pressed: { opacity: controls.pressedOpacity },
   modalRoot: { flex: 1, justifyContent: 'flex-end' }, scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(5,9,16,0.65)' },
