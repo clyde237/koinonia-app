@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { BlurTargetView, BlurView } from 'expo-blur';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft, Bell, BookOpen, CalendarDays, ChevronRight, CirclePlay,
@@ -75,6 +75,71 @@ function FlameWatermark() {
   );
 }
 
+/**
+ * Capsule de navigation à effet verre dépoli (Glassmorphism).
+ * - Sur iOS : utilise nativement BlurView (UIVisualEffectView de UIKit, fluide et transparent).
+ * - Sur Android : utilise LinearGradient + biseau spéculaire pour éviter le bug natif d'Expo
+ *   Dimezis BlurView qui injecte un fond blanc opaque (decorView.background) dès que le contenu
+ *   défile ou que le conteneur a des marges transparentes.
+ */
+function NavGlassContainer({
+  isDark,
+  c,
+  style,
+  reduceTransparency,
+  children,
+}: {
+  isDark: boolean;
+  c: ThemeColors;
+  style?: any;
+  reduceTransparency?: boolean;
+  children: ReactNode;
+}) {
+  if (Platform.OS === 'ios') {
+    return (
+      <BlurView
+        intensity={isDark ? 85 : 75}
+        tint={isDark ? 'dark' : 'light'}
+        style={[style, reduceTransparency && { backgroundColor: c.surface }]}
+      >
+        {children}
+      </BlurView>
+    );
+  }
+
+  return (
+    <View style={[style, { overflow: 'hidden' }, reduceTransparency && { backgroundColor: c.surface }]}>
+      <LinearGradient
+        colors={isDark ? [
+          'rgba(26, 42, 66, 0.92)',
+          'rgba(19, 31, 51, 0.88)',
+          'rgba(11, 19, 32, 0.93)',
+        ] : [
+          'rgba(255, 255, 255, 0.95)',
+          'rgba(255, 255, 255, 0.84)',
+          'rgba(247, 245, 240, 0.90)',
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* Reflet spéculaire fin en haut de la capsule (effet biseau de verre dépoli) */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 18,
+          right: 18,
+          height: 1,
+          backgroundColor: isDark ? 'rgba(78, 234, 216, 0.32)' : 'rgba(255, 255, 255, 0.85)',
+        }}
+      />
+      {children}
+    </View>
+  );
+}
+
 export function HomeScreen(props: Props) {
   const { isDark, colors: c, toggleTheme } = useTheme();
   const s = useMemo(() => createStyles(c, isDark), [c, isDark]);
@@ -110,7 +175,6 @@ export function HomeScreen(props: Props) {
   const [reduceTransparency, setReduceTransparency] = useState(false);
   const [navHeight, setNavHeight] = useState(80);
   const feed = useRef<ComponentRef<typeof ScrollView>>(null);
-  const blurTarget = useRef<ComponentRef<typeof View> | null>(null);
   const firstName = props.name.trim().split(/\s+/)[0] || 'à vous';
   const initials = props.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase() || 'K';
   const bottom = Math.max(insets.bottom, 12);
@@ -236,8 +300,7 @@ export function HomeScreen(props: Props) {
       <FiligraneWatermark opacity={0.15} />
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <SafeAreaView edges={['top', 'left', 'right']} style={s.grow}>
-        <BlurTargetView ref={blurTarget} style={s.grow}>
-          {currentScreen === 'home' ? (
+        {currentScreen === 'home' ? (
             <ScrollView
               ref={feed}
               showsVerticalScrollIndicator={false}
@@ -429,7 +492,6 @@ export function HomeScreen(props: Props) {
             onOpenNotifications={() => setIsNotifMenuOpen(true)}
           />
         )}
-        </BlurTargetView>
       </SafeAreaView>
 
       <View
@@ -446,7 +508,7 @@ export function HomeScreen(props: Props) {
           (sheet !== null || isDetailOpen) && s.navHidden,
         ]}
       >
-        <BlurView blurTarget={blurTarget} blurMethod="dimezisBlurViewSdk31Plus" intensity={70} tint={isDark ? "dark" : "light"} style={[s.navGlass, reduceTransparency && { backgroundColor: c.surface }]}>
+        <NavGlassContainer isDark={isDark} c={c} style={s.navGlass} reduceTransparency={reduceTransparency}>
           <View accessibilityRole="tablist" style={s.navRow}>
             {tabs.map(tab => {
               const selected = currentScreen === tab.id;
@@ -492,13 +554,17 @@ export function HomeScreen(props: Props) {
                       ]}
                     />
                   )}
-                  <tab.icon size={21} color={selected ? c.action : c.text} strokeWidth={controls.iconStroke} />
+                  <tab.icon
+                    size={21}
+                    color={selected ? c.action : (isDark ? '#96A9C0' : c.muted)}
+                    strokeWidth={controls.iconStroke}
+                  />
                   <Text numberOfLines={1} style={[s.navLabel, selected && s.navLabelSelected]}>{tab.label}</Text>
                 </Pressable>
               );
             })}
           </View>
-        </BlurView>
+        </NavGlassContainer>
       </View>
 
       <Modal
@@ -643,13 +709,13 @@ function createStyles(c: ThemeColors, isDark: boolean) {
   eventMeta: { fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: c.muted },
   library: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 20 }, libraryTitle: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.text },
   demoNote: { fontFamily: fonts.body, fontSize: 10, lineHeight: 16, color: c.muted, textAlign: 'center', marginTop: 4 },
-  navShell: { position: 'absolute', maxWidth: 560, alignSelf: 'center', borderRadius: 36, borderWidth: 1, borderColor: c.navBorder, shadowColor: isDark ? '#000000' : '#504330', shadowOpacity: isDark ? 0.35 : 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+  navShell: { position: 'absolute', maxWidth: 560, alignSelf: 'center', borderRadius: 36, borderWidth: 1.2, borderColor: c.navBorder, shadowColor: isDark ? '#000000' : '#504330', shadowOpacity: isDark ? 0.45 : 0.12, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 10 },
   navHidden: { opacity: 0, pointerEvents: 'none' },
   navGlass: { borderRadius: 36, overflow: 'hidden', backgroundColor: c.navGlass },
   navRow: { flexDirection: 'row', alignItems: 'center', padding: 4 },
   navItem: { flex: 1, minWidth: controls.touchSize, height: 62, alignItems: 'center', justifyContent: 'center', gap: 3, position: 'relative' },
-  navActiveCircle: { position: 'absolute', backgroundColor: c.mint, alignSelf: 'center' },
-  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 9.5, lineHeight: 13, color: c.muted, textAlign: 'center' },
+  navActiveCircle: { position: 'absolute', backgroundColor: c.mint, alignSelf: 'center', borderWidth: isDark ? 1 : 0, borderColor: isDark ? 'rgba(78, 234, 216, 0.35)' : 'transparent' },
+  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 9.5, lineHeight: 13, color: isDark ? '#96A9C0' : c.muted, textAlign: 'center' },
   navLabelSelected: { color: c.action, fontFamily: fonts.bold },
   pressed: { opacity: controls.pressedOpacity },
   modalRoot: { flex: 1, justifyContent: 'flex-end' }, scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(5,9,16,0.65)' },

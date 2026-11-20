@@ -38,3 +38,15 @@ test('ThemeContext exposes mode, isDark, colors, and toggleTheme', () => {
   assert.ok(contextSrc.includes('toggleTheme'), 'ThemeContext must export toggleTheme');
   assert.ok(contextSrc.includes('THEME_STORAGE_KEY'), 'ThemeContext must persist user preference');
 });
+
+test('navtab glassmorphism prevents Android white background bug and provides high-contrast icons', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const homeSrc = fs.readFileSync(path.join(__dirname, '../components/HomeScreen.tsx'), 'utf-8');
+
+  // BlurTargetView is removed because it triggers Dimezis white decorView clear on empty scroll padding
+  assert.ok(!homeSrc.includes('BlurTargetView'), 'HomeScreen must not use BlurTargetView');
+  assert.ok(homeSrc.includes('NavGlassContainer'), 'HomeScreen must use NavGlassContainer for bulletproof glassmorphism');
+  assert.ok(homeSrc.includes('LinearGradient'), 'HomeScreen must use LinearGradient for Android glassmorphism');
+  assert.ok(homeSrc.includes('#96A9C0'), 'HomeScreen must provide high-contrast moonlight slate for inactive tabs');
+});

@@ -50,8 +50,8 @@ export const lightTheme: ThemeColors = {
   inputBg: '#FFFFFF',
   badgeBg: '#DBECE9',
   badgeText: '#006B65',
-  navGlass: 'rgba(255, 255, 255, 0.92)',
-  navBorder: '#FFFFFF',
+  navGlass: 'rgba(255, 255, 255, 0.88)',
+  navBorder: 'rgba(255, 255, 255, 0.95)',
 };
 
 /**
@@ -81,8 +81,8 @@ export const darkTheme: ThemeColors = {
   inputBg: '#182740',
   badgeBg: '#183C45',
   badgeText: '#4EEAD8',
-  navGlass: 'rgba(19, 31, 51, 0.92)', // Flou verre bleu nuit
-  navBorder: '#28425F',
+  navGlass: 'rgba(19, 31, 51, 0.88)', // Flou verre bleu nuit
+  navBorder: 'rgba(78, 234, 216, 0.25)', // Bordure effet verre lunaire
 };
 
 /** Alias pour rétrocompatibilité avec les imports existants */
