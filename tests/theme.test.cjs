@@ -108,12 +108,14 @@ const theme = evaluate(compile('lib/theme.ts'), require);
 const headerCode = compile('components/AppHeader.tsx');
 const navCode = compile('components/BottomNav.tsx');
 
-function loadComponent(code, { width, fontScale = 1, platform = 'android', version = 33, insets = { left: 0, right: 0, top: 0, bottom: 24 } }) {
+function loadComponent(code, { width, fontScale = 1, platform = 'android', version = 33, insets = { left: 0, right: 0, top: 0, bottom: 24 }, overrides = {} }) {
   const mocks = {
     react: { memo: component => component, useMemo: factory => factory(), useState: () => [undefined, () => {}] },
     'react/jsx-runtime': { jsx, jsxs },
     'react-native': {
       Image: 'Image', Pressable: 'Pressable', Text: 'Text', View: 'View',
+      ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator', KeyboardAvoidingView: 'KeyboardAvoidingView',
+      Modal: 'Modal', TextInput: 'TextInput', BackHandler: { addEventListener: () => ({ remove() {} }) },
       StyleSheet: { create: styles => styles, absoluteFill: { position: 'absolute' } },
       Platform: { OS: platform, Version: version },
       useWindowDimensions: () => ({ width, fontScale }),
@@ -124,7 +126,7 @@ function loadComponent(code, { width, fontScale = 1, platform = 'android', versi
     '../lib/theme': theme,
     '../lib/ThemeContext': { useTheme: () => ({ isDark: true, colors: theme.darkTheme, toggleTheme() {} }) },
   };
-  return evaluate(code, id => id.endsWith('.png') ? id : mocks[id] ?? require(id));
+  return evaluate(code, id => id.endsWith('.png') ? id : overrides[id] ?? mocks[id] ?? require(id));
 }
 
 function find(tree, predicate) {
@@ -229,4 +231,99 @@ test('Bible text and navigation labels meet 4.5:1 contrast in both themes', () =
       for (const label of [colors.muted, colors.action]) assert.ok(contrast(label, background) >= 4.5);
     }
   }
+});
+
+test('the verse actions follow the latest selection and stay above the system controls', () => {
+  const passage = { bookId: 'jean', chapter: 16 };
+  const book = { id: 'jean', name: 'Jean', testament: 'NT' };
+  const verses = [1, 2, 3].map(number => ({ number, text: `Texte ${number}` }));
+  const hooks = [];
+  const effects = [];
+  let cursor = 0;
+  let firstRender = true;
+  const { BibleScreen } = loadComponent(compile('components/BibleScreen.tsx'), {
+    width: 360,
+    insets: { left: 0, right: 0, top: 0, bottom: 26 },
+    overrides: {
+      react: {
+        useMemo: factory => factory(),
+        useEffect: effect => { if (firstRender) effects.push(effect); },
+        useRef: initial => {
+          const index = cursor++;
+          return hooks[index] ??= { current: initial };
+        },
+        useState: initial => {
+          const index = cursor++;
+          if (firstRender) hooks[index] = initial;
+          return [hooks[index], next => { hooks[index] = typeof next === 'function' ? next(hooks[index]) : next; }];
+        },
+      },
+      '../data/bible': {
+        DAILY_BIBLE_PASSAGE: passage,
+        BIBLE_BOOKS: [book],
+        getBibleBook: () => book,
+        getChapterVerses: () => verses,
+        adjacentChapter: () => undefined,
+        normalizeBibleText: text => text,
+      },
+      '../lib/bible-library': {
+        loadBibleHighlights: async () => new Set(),
+        saveBiblePosition: async () => {},
+      },
+      'expo-linear-gradient': { LinearGradient: 'LinearGradient' },
+      './AppHeader': { AppHeader: 'AppHeader' },
+      './BibleSearch': { BibleSearch: 'BibleSearch' },
+      './FiligraneWatermark': { FiligraneWatermark: 'FiligraneWatermark' },
+    },
+  });
+  const render = () => {
+    cursor = 0;
+    const screen = BibleScreen({ initialPassage: passage });
+    firstRender = false;
+    return screen;
+  };
+  render();
+  effects.forEach(effect => effect());
+  let screen = render();
+
+  const byLabel = (tree, label) => find(tree, node => node.props.accessibilityLabel?.startsWith(label));
+  const select = number => {
+    byLabel(screen, `Verset ${number}.`)[0].props.onPress();
+    screen = render();
+  };
+  const assertAnchor = number => {
+    const [scroll] = find(screen, node => node.type === 'ScrollView');
+    const [row] = find(scroll, node => Array.isArray(node.props.children)
+      && node.props.children.some(child => child?.props?.accessibilityLabel?.startsWith(`Verset ${number}.`)));
+    const [actions, verse] = row.props.children;
+    assert.equal(actions.props.style.marginBottom, 6);
+    assert.equal(verse.props.accessibilityState.selected, true);
+    assert.equal(byLabel(screen, 'Copier les versets sélectionnés').length, 1);
+    assert.equal(byLabel(actions, 'Copier les versets sélectionnés').length, 1);
+    return { scroll, actions };
+  };
+
+  assert.equal(byLabel(screen, 'Copier les versets sélectionnés').length, 0);
+  select(2);
+  assertAnchor(2);
+  select(3);
+  const { scroll, actions } = assertAnchor(3);
+
+  const offsets = [];
+  scroll.props.ref.current = {
+    getInnerViewRef: () => ({}),
+    scrollTo: ({ y }) => offsets.push(y),
+  };
+  scroll.props.onLayout({ nativeEvent: { layout: { height: 300 } } });
+  scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 100 } } });
+  for (const y of [180, 90, 350]) {
+    actions.props.ref.current = { measureLayout: (_content, resolve) => resolve(0, y, 210, 50) };
+    actions.props.onLayout();
+  }
+  assert.deepEqual(offsets, [82, 164]);
+
+  select(3);
+  assertAnchor(2);
+  byLabel(screen, 'Désélectionner tout')[0].props.onPress();
+  assert.equal(byLabel(render(), 'Copier les versets sélectionnés').length, 0);
 });

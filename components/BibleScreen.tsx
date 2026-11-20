@@ -77,6 +77,7 @@ type Props = {
 };
 
 const DEFAULT_PASSAGE = { bookId: DAILY_BIBLE_PASSAGE.bookId, chapter: DAILY_BIBLE_PASSAGE.chapter };
+const verseActionsGap = 6;
 
 type LoadedChapter = {
   key: string;
@@ -120,6 +121,8 @@ export function BibleScreen({
   const [notice, setNotice] = useState<string>();
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const targetVerseRef = useRef<ComponentRef<typeof View>>(null);
+  const verseActionsRef = useRef<ComponentRef<typeof View>>(null);
+  const readingViewport = useRef({ offset: 0, height: 0 });
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mounted = useRef(true);
   const savingRef = useRef(false);
@@ -223,6 +226,27 @@ export function BibleScreen({
     }, () => {});
   };
 
+  const revealVerseActions = () => {
+    const scroll = scrollRef.current;
+    const content = scroll?.getInnerViewRef();
+    const actions = verseActionsRef.current;
+    if (!scroll || !content || !actions) return;
+
+    actions.measureLayout(content, (_x, y, _width, height) => {
+      if (verseActionsRef.current !== actions || scrollRef.current !== scroll) return;
+      const viewport = readingViewport.current;
+      const visibleHeight = viewport.height - insets.bottom;
+      if (visibleHeight <= 0) return;
+
+      const padding = 8;
+      const latestOffset = Math.max(0, y - padding);
+      const visibleVerseEnd = y + height + verseActionsGap + 24;
+      const earliestOffset = visibleVerseEnd - visibleHeight + padding;
+      const offset = Math.min(latestOffset, Math.max(viewport.offset, earliestOffset));
+      if (offset !== viewport.offset) scroll.scrollTo({ y: offset, animated: false });
+    }, () => {});
+  };
+
   const openPicker = () => {
     setPickerTestament(currentBook.testament);
     setPickerSearch('');
@@ -310,6 +334,68 @@ export function BibleScreen({
 
   const activeFont = BIBLE_FONT_SIZES[fontSizeMode];
 
+  const anchorVerse = selectedVerses.at(-1);
+  const verseActions = (
+    <View ref={verseActionsRef} collapsable={false} onLayout={revealVerseActions} style={s.selectionBarWrapper}>
+      <View style={[s.compactSelectionBar, s.floatingBarShadow]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Copier les versets sélectionnés"
+          onPress={handleCopySelected}
+          style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
+        >
+          <Copy
+            size={21}
+            color={isDark ? '#131F33' : '#FFFFFF'}
+            strokeWidth={1.8}
+          />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Partager les versets sélectionnés"
+          onPress={handleShareSelected}
+          style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
+        >
+          <Share2
+            size={21}
+            color={isDark ? '#131F33' : '#FFFFFF'}
+            strokeWidth={1.8}
+          />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={allHighlighted ? 'Retirer le surlignage' : 'Surligner les versets sélectionnés'}
+          accessibilityState={{ busy: savingHighlights, disabled: savingHighlights }}
+          disabled={savingHighlights}
+          onPress={handleHighlightSelected}
+          style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
+        >
+          <Highlighter
+            size={21}
+            color={
+              allHighlighted
+                ? (isDark ? '#008276' : '#4EEAD8')
+                : (isDark ? '#131F33' : '#FFFFFF')
+            }
+            strokeWidth={1.8}
+          />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Désélectionner tout"
+          onPress={() => setSelectedVerses([])}
+          style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
+        >
+          <X
+            size={21}
+            color={isDark ? '#64748B' : '#94A3B8'}
+            strokeWidth={1.8}
+          />
+        </Pressable>
+      </View>
+    </View>
+  );
+
   return (
     <View style={s.root}>
       <FiligraneWatermark opacity={0.15} />
@@ -372,81 +458,10 @@ export function BibleScreen({
         </View>
       </View>
 
-      {activeTab === 'bible' && !isSearchVisible && (selectedVerses.length > 0 || notice) && (
-        <View style={{ paddingHorizontal: gutter }}>
-          {/* Verses Selection Bar (Capsule Flottante Épurée Icon-only) */}
-          {selectedVerses.length > 0 && (
-            <View style={s.selectionBarWrapper}>
-              <View style={[s.compactSelectionBar, s.floatingBarShadow]}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Copier les versets sélectionnés"
-                  onPress={handleCopySelected}
-                  style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
-                >
-                  <Copy
-                    size={21}
-                    color={isDark ? '#131F33' : '#FFFFFF'}
-                    strokeWidth={1.8}
-                  />
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Partager les versets sélectionnés"
-                  onPress={handleShareSelected}
-                  style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
-                >
-                  <Share2
-                    size={21}
-                    color={isDark ? '#131F33' : '#FFFFFF'}
-                    strokeWidth={1.8}
-                  />
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={allHighlighted ? 'Retirer le surlignage' : 'Surligner les versets sélectionnés'}
-                  accessibilityState={{ busy: savingHighlights, disabled: savingHighlights }}
-                  disabled={savingHighlights}
-                  onPress={handleHighlightSelected}
-                  style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
-                >
-                  <Highlighter
-                    size={21}
-                    color={
-                      allHighlighted
-                        ? (isDark ? '#008276' : '#4EEAD8')
-                        : (isDark ? '#131F33' : '#FFFFFF')
-                    }
-                    strokeWidth={1.8}
-                  />
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Désélectionner tout"
-                  onPress={() => setSelectedVerses([])}
-                  style={({ pressed }) => [s.barIconBtn, pressed && s.pressed]}
-                >
-                  <X
-                    size={21}
-                    color={isDark ? '#64748B' : '#94A3B8'}
-                    strokeWidth={1.8}
-                  />
-                </Pressable>
-              </View>
-            </View>
-          )}
-
-          {/* Copy Toast Alert */}
-          {notice && (
-            <View style={s.toastAlert}>
-              <Check size={16} color="white" strokeWidth={2} />
-              <Text style={s.toastAlertText}>{notice}</Text>
-            </View>
-          )}
-
+      {activeTab === 'bible' && !isSearchVisible && notice && (
+        <View style={[s.toastAlert, { marginHorizontal: gutter }]}>
+          <Check size={16} color="white" strokeWidth={2} />
+          <Text style={s.toastAlertText}>{notice}</Text>
         </View>
       )}
 
@@ -461,6 +476,9 @@ export function BibleScreen({
       ) : activeTab === 'bible' ? (
         <ScrollView
           ref={scrollRef}
+          onLayout={event => { readingViewport.current.height = event.nativeEvent.layout.height; }}
+          onScroll={event => { readingViewport.current.offset = Math.max(0, event.nativeEvent.contentOffset.y); }}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             s.scrollContent,
@@ -545,43 +563,45 @@ export function BibleScreen({
                   const isHighlighted = highlights.has(verse.number);
                   const isTarget = passage?.verse === verse.number;
                   return (
-                    <Pressable
-                      key={`${chapterKey}:${verse.number}`}
-                      ref={isTarget ? targetVerseRef : undefined}
-                      onLayout={isTarget ? scrollToTargetVerse : undefined}
-                      collapsable={!isTarget}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Verset ${verse.number}${isHighlighted ? ', surligné' : ''}. ${verse.text}`}
-                      accessibilityHint={isSelected ? 'Désélectionne le verset' : 'Sélectionne le verset'}
-                      accessibilityState={{ selected: isSelected }}
-                      onPress={() => toggleVerseSelection(verse.number)}
-                      style={({ pressed }) => [
-                        s.verseRow,
-                        isHighlighted && s.verseRowHighlighted,
-                        isTarget && s.verseRowTarget,
-                        isSelected && s.verseRowSelected,
-                        pressed && !isSelected && !isHighlighted && s.verseRowPressed,
-                      ]}
-                    >
-                      <View style={[s.verseNumberPill, { width: 28 * fontScale }, isSelected && s.verseNumberPillSelected]}>
-                        <Text style={[s.verseNumberText, isSelected && s.verseNumberTextSelected]}>
-                          {verse.number}
-                        </Text>
-                      </View>
-                      <Text
-                        textBreakStrategy="highQuality"
-                        lineBreakStrategyIOS="push-out"
-                        style={[
-                          s.verseText,
-                          {
-                            fontSize: activeFont.text,
-                            lineHeight: activeFont.line,
-                          },
+                    <View key={`${chapterKey}:${verse.number}`}>
+                      {verse.number === anchorVerse && verseActions}
+                      <Pressable
+                        ref={isTarget ? targetVerseRef : undefined}
+                        onLayout={isTarget ? scrollToTargetVerse : undefined}
+                        collapsable={!isTarget}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Verset ${verse.number}${isHighlighted ? ', surligné' : ''}. ${verse.text}`}
+                        accessibilityHint={isSelected ? 'Désélectionne le verset' : 'Sélectionne le verset'}
+                        accessibilityState={{ selected: isSelected }}
+                        onPress={() => toggleVerseSelection(verse.number)}
+                        style={({ pressed }) => [
+                          s.verseRow,
+                          isHighlighted && s.verseRowHighlighted,
+                          isTarget && s.verseRowTarget,
+                          isSelected && s.verseRowSelected,
+                          pressed && !isSelected && !isHighlighted && s.verseRowPressed,
                         ]}
                       >
-                        {verse.text}
-                      </Text>
-                    </Pressable>
+                        <View style={[s.verseNumberPill, { width: 28 * fontScale }, isSelected && s.verseNumberPillSelected]}>
+                          <Text style={[s.verseNumberText, isSelected && s.verseNumberTextSelected]}>
+                            {verse.number}
+                          </Text>
+                        </View>
+                        <Text
+                          textBreakStrategy="highQuality"
+                          lineBreakStrategyIOS="push-out"
+                          style={[
+                            s.verseText,
+                            {
+                              fontSize: activeFont.text,
+                              lineHeight: activeFont.line,
+                            },
+                          ]}
+                        >
+                          {verse.text}
+                        </Text>
+                      </Pressable>
+                    </View>
                   );
                 })}
               </View>
@@ -1103,11 +1123,10 @@ function createBibleStyles(c: ThemeColors, isDark: boolean) {
     backgroundColor: c.divider,
   },
 
-  /* Verses Selection Bar (Capsule Flottante Épurée) */
+  /* Verse actions */
   selectionBarWrapper: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: verseActionsGap,
   },
   compactSelectionBar: {
     flexDirection: 'row',
