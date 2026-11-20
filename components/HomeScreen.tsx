@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { BlurView } from 'expo-blur';
+import { BlurTargetView, BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft, Bell, BookOpen, CalendarDays, ChevronRight, CirclePlay,
@@ -77,52 +77,34 @@ function FlameWatermark() {
 
 /**
  * Capsule de navigation à effet verre dépoli (Glassmorphism).
- * - Sur iOS : utilise nativement BlurView (UIVisualEffectView de UIKit, fluide et transparent).
- * - Sur Android : utilise LinearGradient + biseau spéculaire pour éviter le bug natif d'Expo
- *   Dimezis BlurView qui injecte un fond blanc opaque (decorView.background) dès que le contenu
- *   défile ou que le conteneur a des marges transparentes.
+ * - Utilise BlurView nativement avec blurTarget sur Android et iOS.
+ * - Le blurTarget possède un fond opaque (c.canvas) et englobe le filigrane,
+ *   ce qui garantit que le canevas n'a aucune zone transparente et ne blanchit jamais.
+ * - Liseré spéculaire fin en haut de la capsule pour le reflet verre taillé.
  */
 function NavGlassContainer({
   isDark,
   c,
+  blurTarget,
   style,
   reduceTransparency,
   children,
 }: {
   isDark: boolean;
   c: ThemeColors;
+  blurTarget: any;
   style?: any;
   reduceTransparency?: boolean;
   children: ReactNode;
 }) {
-  if (Platform.OS === 'ios') {
-    return (
-      <BlurView
-        intensity={isDark ? 85 : 75}
-        tint={isDark ? 'dark' : 'light'}
-        style={[style, reduceTransparency && { backgroundColor: c.surface }]}
-      >
-        {children}
-      </BlurView>
-    );
-  }
-
   return (
-    <View style={[style, { overflow: 'hidden' }, reduceTransparency && { backgroundColor: c.surface }]}>
-      <LinearGradient
-        colors={isDark ? [
-          'rgba(26, 42, 66, 0.92)',
-          'rgba(19, 31, 51, 0.88)',
-          'rgba(11, 19, 32, 0.93)',
-        ] : [
-          'rgba(255, 255, 255, 0.95)',
-          'rgba(255, 255, 255, 0.84)',
-          'rgba(247, 245, 240, 0.90)',
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+    <BlurView
+      blurTarget={blurTarget}
+      blurMethod="dimezisBlurView"
+      intensity={isDark ? 65 : 75}
+      tint={isDark ? 'dark' : 'light'}
+      style={[style, reduceTransparency && { backgroundColor: c.surface }]}
+    >
       {/* Reflet spéculaire fin en haut de la capsule (effet biseau de verre dépoli) */}
       <View
         pointerEvents="none"
@@ -136,7 +118,7 @@ function NavGlassContainer({
         }}
       />
       {children}
-    </View>
+    </BlurView>
   );
 }
 
@@ -175,6 +157,7 @@ export function HomeScreen(props: Props) {
   const [reduceTransparency, setReduceTransparency] = useState(false);
   const [navHeight, setNavHeight] = useState(80);
   const feed = useRef<ComponentRef<typeof ScrollView>>(null);
+  const blurTarget = useRef<ComponentRef<typeof View> | null>(null);
   const firstName = props.name.trim().split(/\s+/)[0] || 'à vous';
   const initials = props.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase() || 'K';
   const bottom = Math.max(insets.bottom, 12);
@@ -297,13 +280,15 @@ export function HomeScreen(props: Props) {
 
   return (
     <View style={s.root}>
-      <FiligraneWatermark opacity={0.15} />
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <SafeAreaView edges={['top', 'left', 'right']} style={s.grow}>
-        {currentScreen === 'home' ? (
+      <SafeAreaView edges={['top', 'left', 'right']} style={[s.grow, { backgroundColor: c.canvas }]}>
+        <BlurTargetView ref={blurTarget} style={[s.grow, { backgroundColor: c.canvas }]}>
+          <FiligraneWatermark opacity={isDark ? 0.12 : 0.15} />
+          {currentScreen === 'home' ? (
             <ScrollView
               ref={feed}
               showsVerticalScrollIndicator={false}
+              style={{ backgroundColor: 'transparent' }}
               contentContainerStyle={[s.feed, { paddingHorizontal: gutter, paddingBottom: navHeight + bottom + 32 }]}
             >
             <View style={s.header}>
@@ -492,6 +477,7 @@ export function HomeScreen(props: Props) {
             onOpenNotifications={() => setIsNotifMenuOpen(true)}
           />
         )}
+        </BlurTargetView>
       </SafeAreaView>
 
       <View
@@ -508,7 +494,7 @@ export function HomeScreen(props: Props) {
           (sheet !== null || isDetailOpen) && s.navHidden,
         ]}
       >
-        <NavGlassContainer isDark={isDark} c={c} style={s.navGlass} reduceTransparency={reduceTransparency}>
+        <NavGlassContainer isDark={isDark} c={c} blurTarget={blurTarget} style={s.navGlass} reduceTransparency={reduceTransparency}>
           <View accessibilityRole="tablist" style={s.navRow}>
             {tabs.map(tab => {
               const selected = currentScreen === tab.id;
