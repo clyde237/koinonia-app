@@ -231,7 +231,7 @@ export function HomeScreen(props: Props) {
 
   return (
     <View style={s.root}>
-      <FiligraneWatermark opacity={0.2} />
+      <FiligraneWatermark opacity={0.15} />
       <StatusBar style="dark" />
       <SafeAreaView edges={['top', 'left', 'right']} style={s.grow}>
         <BlurTargetView ref={blurTarget} style={s.grow}>

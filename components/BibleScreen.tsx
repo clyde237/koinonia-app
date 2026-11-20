@@ -307,7 +307,7 @@ export function BibleScreen({
 
   return (
     <View style={s.root}>
-      <FiligraneWatermark opacity={0.2} />
+      <FiligraneWatermark opacity={0.15} />
       {/* Top Header */}
       <View style={[s.header, fontScale > 1.3 && s.headerWrapped, { paddingHorizontal: gutter }]}>
         <View style={s.headerLeft}>

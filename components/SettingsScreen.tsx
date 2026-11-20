@@ -136,7 +136,7 @@ export function SettingsScreen({
 
   return (
     <View style={s.root}>
-      <FiligraneWatermark opacity={0.2} />
+      <FiligraneWatermark opacity={0.15} />
       {/* Top Header Bar */}
       <View style={[s.header, { paddingHorizontal: gutter }]}>
         <View style={s.headerLeft}>

@@ -5,10 +5,10 @@ type Props = {
   opacity?: number;
 };
 
-export function FiligraneWatermark({ opacity = 0.2 }: Props) {
+export function FiligraneWatermark({ opacity = 0.15 }: Props) {
   return (
     <Image
-      source={require('../assets/filigrane.png')}
+      source={require('../assets/filigrane_green.png')}
       style={[
         StyleSheet.absoluteFill,
         s.watermark,

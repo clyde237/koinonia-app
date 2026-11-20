@@ -188,7 +188,7 @@ export function BreakfastsScreen({
 
     return (
       <View style={s.root}>
-        <FiligraneWatermark opacity={0.2} />
+        <FiligraneWatermark opacity={0.15} />
         <View style={s.grow}>
           {/* Header du détail */}
           <View style={s.detailHeader}>
@@ -461,7 +461,7 @@ export function BreakfastsScreen({
   // --- RENDU : PAGE PRINCIPALE BREAKFASTS ---
   return (
     <View style={s.root}>
-      <FiligraneWatermark opacity={0.2} />
+      <FiligraneWatermark opacity={0.15} />
       <View style={s.grow}>
         <ScrollView
           ref={feedRef}

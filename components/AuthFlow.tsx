@@ -448,7 +448,7 @@ export function AuthFlow({ colors }: Props) {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <FiligraneWatermark opacity={0.2} />
+      <FiligraneWatermark opacity={0.15} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView key={screen + step} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, screen === 'onboarding' && styles.onboardingContent]}>
           {screen === 'login' || screen === 'register' ? (
