@@ -30,10 +30,12 @@ import {
   ChevronRight,
   Copy,
   Highlighter,
+  Moon,
   Music,
   Search,
   Share2,
   Sparkles,
+  Sun,
   X,
 } from 'lucide-react-native';
 import {
@@ -50,7 +52,8 @@ import {
   type Testament,
 } from '../data/bible';
 import { loadBibleHighlights, loadBiblePosition, saveBibleHighlights, saveBiblePosition } from '../lib/bible-library';
-import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 import { BibleSearch } from './BibleSearch';
 import { FiligraneWatermark } from './FiligraneWatermark';
 
@@ -91,6 +94,8 @@ export function BibleScreen({
   fontSizeMode = 'medium',
   onDetailOpenChange,
 }: Props) {
+  const { isDark, colors: c, toggleTheme } = useTheme();
+  const s = useMemo(() => createBibleStyles(c, isDark), [c, isDark]);
   const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = width < 370;
@@ -330,6 +335,19 @@ export function BibleScreen({
         </View>
 
         <View style={s.headerRight}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
+            onPress={toggleTheme}
+            style={({ pressed }) => [s.iconBtn, pressed && s.pressed]}
+          >
+            {isDark ? (
+              <Sun size={20} color={c.action} strokeWidth={1.5} />
+            ) : (
+              <Moon size={20} color={c.text} strokeWidth={1.5} />
+            )}
+          </Pressable>
+
           {activeTab === 'bible' && (
             <Pressable
               accessibilityRole="button"
@@ -974,7 +992,8 @@ export function BibleScreen({
   );
 }
 
-const s = StyleSheet.create({
+function createBibleStyles(c: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: c.canvas },
   pressed: { opacity: controls.pressedOpacity },
 
@@ -985,7 +1004,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: c.divider,
+    borderBottomColor: isDark ? c.moonlightBorder : c.divider,
     backgroundColor: c.canvas,
   },
   headerLeft: {
@@ -1787,4 +1806,5 @@ const s = StyleSheet.create({
   chapterGridItemTextActive: {
     color: 'white',
   },
-});
+  });
+}

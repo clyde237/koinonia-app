@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   Pressable,
@@ -24,7 +24,8 @@ import {
   X,
 } from 'lucide-react-native';
 import { AppNotification, NotificationCategory } from '../data/notifications';
-import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 
 type Props = {
   visible: boolean;
@@ -43,6 +44,8 @@ export function NotificationsMenu({
   onMarkAllAsRead,
   onOpenSettings,
 }: Props) {
+  const { isDark, colors: c } = useTheme();
+  const s = useMemo(() => createNotificationStyles(c, isDark), [c, isDark]);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const top = insets.top + (height < 480 ? 8 : 54);
@@ -204,29 +207,30 @@ export function NotificationsMenu({
   );
 }
 
-const s = StyleSheet.create({
+function createNotificationStyles(c: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
   modalOverlay: {
     flex: 1,
   },
   scrim: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(17, 34, 30, 0.3)',
+    backgroundColor: isDark ? 'rgba(5, 9, 16, 0.6)' : 'rgba(17, 34, 30, 0.3)',
   },
   pressed: {
     opacity: controls.pressedOpacity,
   },
   menuCard: {
     position: 'absolute',
-    backgroundColor: c.surface,
+    backgroundColor: isDark ? c.surfaceRaised : c.surface,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: c.divider,
+    borderColor: isDark ? c.moonlightBorder : c.divider,
     overflow: 'hidden',
     zIndex: 999,
   },
   cardShadow: {
-    shadowColor: '#0E2420',
-    shadowOpacity: 0.16,
+    shadowColor: isDark ? '#000000' : '#0E2420',
+    shadowOpacity: isDark ? 0.4 : 0.16,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 18,
     elevation: 8,
@@ -237,8 +241,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: c.divider,
-    backgroundColor: c.canvas,
+    borderBottomColor: isDark ? c.moonlightBorder : c.divider,
+    backgroundColor: isDark ? c.surface : c.canvas,
   },
   titleRow: {
     flexDirection: 'row',
@@ -399,8 +403,8 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: c.divider,
-    backgroundColor: c.canvas,
+    borderTopColor: isDark ? c.moonlightBorder : c.divider,
+    backgroundColor: isDark ? c.surface : c.canvas,
   },
   menuFooterText: {
     fontFamily: fonts.bold,
@@ -408,4 +412,5 @@ const s = StyleSheet.create({
     color: c.action,
     flex: 1,
   },
-});
+  });
+}

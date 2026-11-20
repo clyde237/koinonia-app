@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 // Cet écran utilise StyleSheet : conserver les callbacks natifs de Pressable.
 // NativeWind 4 les intercepte et perd leurs styles (flex, arrondis, dimensions).
-import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import {
   AccessibilityInfo, Alert, BackHandler, Image, Modal, Platform, Pressable,
   ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
@@ -12,13 +12,14 @@ import { BlurTargetView, BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft, Bell, BookOpen, CalendarDays, ChevronRight, CirclePlay,
-  Clock3, Home, MapPin, Play, Settings, Share2, Users, X,
+  Clock3, Home, MapPin, Moon, Play, Settings, Share2, Sun, Users, X,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { dailyBreakfast, homeCommunities, homeImages, recentBreakfasts, type Breakfast } from '../data/home';
 import { DAILY_BIBLE_PASSAGE, type BiblePassage } from '../data/bible';
 import { loadBibleFontSize, saveBibleFontSize } from '../lib/bible-library';
-import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 import { BreakfastsScreen } from './BreakfastsScreen';
 import { GroupsScreen } from './GroupsScreen';
 import { BIBLE_FONT_SIZES, BibleScreen, type FontSizeMode } from './BibleScreen';
@@ -64,21 +65,9 @@ const tabs = [
   { id: 'settings', label: 'Réglages', icon: Settings },
 ] as const;
 
-function SectionTitle({ children, action, actionLabel }: { children: ReactNode; action: () => void; actionLabel: string }) {
-  return (
-    <View style={s.sectionHeading}>
-      <Text accessibilityRole="header" style={s.sectionTitle}>{children}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={actionLabel} onPress={action} style={({ pressed }) => [s.textAction, pressed && s.pressed]}>
-        <Text style={s.link}>Tout voir</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-/** Une flamme seule, sans déformer le logotype officiel. */
 function FlameWatermark() {
   return (
-    <View pointerEvents="none" accessible={false} style={s.watermark}>
+    <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 16, right: 18, opacity: 0.14 }}>
       <Svg width={42} height={60} viewBox="200 0 700 1000">
         <Path fill="white" d="M598 0C501 52 422 175 434 292C439 370 477 461 470 521C464 572 430 592 388 590C320 587 265 526 281 394C229 481 205 576 210 669C218 869 348 986 556 984C737 983 877 866 879 686C883 523 821 406 690 291C590 203 531 105 598 0Z" />
       </Svg>
@@ -87,6 +76,19 @@ function FlameWatermark() {
 }
 
 export function HomeScreen(props: Props) {
+  const { isDark, colors: c, toggleTheme } = useTheme();
+  const s = useMemo(() => createStyles(c, isDark), [c, isDark]);
+
+  function SectionTitle({ children, action, actionLabel }: { children: ReactNode; action: () => void; actionLabel: string }) {
+    return (
+      <View style={s.sectionHeading}>
+        <Text accessibilityRole="header" style={s.sectionTitle}>{children}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={actionLabel} onPress={action} style={({ pressed }) => [s.textAction, pressed && s.pressed]}>
+          <Text style={s.link}>Tout voir</Text>
+        </Pressable>
+      </View>
+    );
+  }
   const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = width < 370;
@@ -232,7 +234,7 @@ export function HomeScreen(props: Props) {
   return (
     <View style={s.root}>
       <FiligraneWatermark opacity={0.15} />
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <SafeAreaView edges={['top', 'left', 'right']} style={s.grow}>
         <BlurTargetView ref={blurTarget} style={s.grow}>
           {currentScreen === 'home' ? (
@@ -242,8 +244,26 @@ export function HomeScreen(props: Props) {
               contentContainerStyle={[s.feed, { paddingHorizontal: gutter, paddingBottom: navHeight + bottom + 32 }]}
             >
             <View style={s.header}>
-              <Image source={require('../assets/logo-koinonia.png')} resizeMode="contain" accessibilityLabel="Koinonia" style={[s.logo, compact && { width: 148 }]} />
+              <Image
+                source={isDark ? require('../assets/logo-koinonia_w.png') : require('../assets/logo-koinonia.png')}
+                resizeMode="contain"
+                accessibilityLabel="Koinonia"
+                style={[s.logo, compact && { width: 148 }]}
+              />
               <View style={s.headerActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
+                  onPress={toggleTheme}
+                  style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
+                >
+                  {isDark ? (
+                    <Sun size={23} color={c.action} strokeWidth={controls.iconStroke} />
+                  ) : (
+                    <Moon size={23} color={c.text} strokeWidth={controls.iconStroke} />
+                  )}
+                </Pressable>
+
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Notifications, ${unreadNotifCount > 0 ? `${unreadNotifCount} nouvelles` : 'aucune nouvelle'}`}
@@ -426,7 +446,7 @@ export function HomeScreen(props: Props) {
           (sheet !== null || isDetailOpen) && s.navHidden,
         ]}
       >
-        <BlurView blurTarget={blurTarget} blurMethod="dimezisBlurViewSdk31Plus" intensity={70} tint="light" style={[s.navGlass, reduceTransparency && { backgroundColor: c.surface }]}>
+        <BlurView blurTarget={blurTarget} blurMethod="dimezisBlurViewSdk31Plus" intensity={70} tint={isDark ? "dark" : "light"} style={[s.navGlass, reduceTransparency && { backgroundColor: c.surface }]}>
           <View accessibilityRole="tablist" style={s.navRow}>
             {tabs.map(tab => {
               const selected = currentScreen === tab.id;
@@ -566,23 +586,24 @@ export function HomeScreen(props: Props) {
   );
 }
 
-const s = StyleSheet.create({
+function createStyles(c: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: c.canvas }, grow: { flex: 1 },
   coverImage: { width: '100%', height: '100%' },
   feed: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingTop: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 },
-  logo: { width: 158, height: 30 }, headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  bellBadge: { position: 'absolute', top: 10, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: '#00A99D', borderWidth: 1.5, borderColor: 'white' },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: c.mint, borderWidth: 2, borderColor: 'white', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  avatarImage: { width: '100%', height: '100%' }, initials: { fontFamily: fonts.heading, fontSize: 17, color: c.action },
+  logo: { width: 158, height: 30 }, headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  bellBadge: { position: 'absolute', top: 8, right: 8, width: 9, height: 9, borderRadius: 5, backgroundColor: c.action, borderWidth: 1.5, borderColor: isDark ? c.surface : 'white' },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.mint, borderWidth: 2, borderColor: isDark ? c.moonlightBorder : 'white', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%' }, initials: { fontFamily: fonts.heading, fontSize: 16, color: c.action },
   welcome: { marginTop: 16, marginBottom: 20 }, greeting: { fontFamily: fonts.heading, fontSize: 14, lineHeight: 21, color: c.text, marginBottom: 6 },
   welcomeTitle: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 31, letterSpacing: -0.6, color: c.text },
   welcomeTitleCompact: { fontSize: 22, lineHeight: 29 },
   hero: { borderRadius: 32, overflow: 'hidden', backgroundColor: '#243D3A' },
   heroContent: { flex: 1, padding: 20 }, heroSpacer: { minHeight: 24, flex: 1 },
   dailyBadge: { alignSelf: 'flex-start', backgroundColor: c.action, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  dailyBadgeText: { color: 'white', fontFamily: fonts.heading, fontSize: 12, lineHeight: 17 },
+  dailyBadgeText: { color: isDark ? c.onHeroAction : 'white', fontFamily: fonts.heading, fontSize: 12, lineHeight: 17 },
   watermark: { position: 'absolute', top: 16, right: 18, opacity: 0.14 },
   heroTitle: { fontFamily: fonts.bold, fontSize: 30, lineHeight: 36, letterSpacing: -0.6, color: c.onHero, marginBottom: 12 },
   heroTitleCompact: { fontSize: 27, lineHeight: 34 },
@@ -595,45 +616,44 @@ const s = StyleSheet.create({
   readButton: { flex: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 14, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', backgroundColor: 'rgba(255,255,255,0.12)', justifyContent: 'center', alignItems: 'center' },
   stackedAction: { flex: 0 },
   readLabel: { flexShrink: 1, textAlign: 'center', fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.onHero },
-  softShadow: { shadowColor: '#584A37', shadowOpacity: 0.06, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
-  verseCard: { marginTop: 12, borderRadius: 24, padding: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: '#F0ECE5' },
+  softShadow: { shadowColor: isDark ? '#000000' : '#584A37', shadowOpacity: isDark ? 0.35 : 0.06, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
+  verseCard: { marginTop: 12, borderRadius: 24, padding: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: isDark ? c.moonlightBorder : '#F0ECE5' },
   verseHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, shareButton: { marginTop: -10, marginBottom: -8, marginRight: -12 },
   verseBody: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' }, quote: { fontFamily: fonts.bold, fontSize: 54, lineHeight: 56, color: c.amber, marginTop: -1 },
   verse: { fontFamily: fonts.body, fontSize: 16, lineHeight: 24, color: c.text }, reference: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: c.muted, marginTop: 6 },
   section: { marginTop: 24 }, sectionHeading: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 },
   sectionTitle: { fontFamily: fonts.heading, fontSize: 18, lineHeight: 25, color: c.text, flexShrink: 1, letterSpacing: -0.35 },
   textAction: { minHeight: 48, justifyContent: 'center', paddingLeft: 4, flexShrink: 0, marginVertical: -8 }, link: { fontFamily: fonts.heading, color: c.action, fontSize: 12, lineHeight: 18 },
-  // Garder le cadre sans padding : les calques de fond doivent couvrir ses bords.
-  recentCard: { borderRadius: 18, overflow: 'hidden', backgroundColor: c.text },
+  recentCard: { borderRadius: 18, overflow: 'hidden', backgroundColor: isDark ? c.surfaceRaised : c.text },
   recentContent: { minHeight: 136, flexGrow: 1, justifyContent: 'flex-end', padding: 12 },
   formatIcon: { alignSelf: 'center', minHeight: 44, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   recentTitle: { fontFamily: fonts.heading, fontSize: 13, lineHeight: 18, color: 'white' },
-  communityCard: { borderRadius: 24, backgroundColor: c.surface, borderWidth: 1, borderColor: '#F0ECE5', paddingHorizontal: 12 },
+  communityCard: { borderRadius: 24, backgroundColor: c.surface, borderWidth: 1, borderColor: isDark ? c.moonlightBorder : '#F0ECE5', paddingHorizontal: 12 },
   communityRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.divider },
   communityImage: { width: 62, height: 48, borderRadius: 12, backgroundColor: c.mint, borderWidth: StyleSheet.hairlineWidth, borderColor: controls.photoOutline },
   communityName: { fontFamily: fonts.heading, fontSize: 13, lineHeight: 19, color: c.text },
-  pending: { fontFamily: fonts.medium, color: '#855C08', fontSize: 10, lineHeight: 16, marginTop: 3 },
-  neutralBadge: { backgroundColor: '#F0EFEB', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, maxWidth: 90 },
+  pending: { fontFamily: fonts.medium, color: isDark ? '#F7CA73' : '#855C08', fontSize: 10, lineHeight: 16, marginTop: 3 },
+  neutralBadge: { backgroundColor: isDark ? c.surfaceRaised : '#F0EFEB', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, maxWidth: 90 },
   badgeText: { fontFamily: fonts.medium, fontSize: 10, lineHeight: 15, color: c.muted },
-  eventCard: { marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, padding: 12, borderRadius: 24, borderWidth: 1, borderColor: '#F0ECE5' },
+  eventCard: { marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, padding: 12, borderRadius: 24, borderWidth: 1, borderColor: isDark ? c.moonlightBorder : '#F0ECE5' },
   eventImage: { width: 76, height: 76, borderRadius: 12, backgroundColor: c.amberSurface, borderWidth: StyleSheet.hairlineWidth, borderColor: controls.photoOutline },
   eventBadge: { alignSelf: 'flex-start', backgroundColor: c.amberSurface, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4 },
   eventBadgeText: { fontFamily: fonts.medium, fontSize: 10, lineHeight: 16, color: c.amberText }, eventTitle: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.text },
   eventMeta: { fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: c.muted },
   library: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 20 }, libraryTitle: { fontFamily: fonts.heading, fontSize: 15, lineHeight: 22, color: c.text },
   demoNote: { fontFamily: fonts.body, fontSize: 10, lineHeight: 16, color: c.muted, textAlign: 'center', marginTop: 4 },
-  navShell: { position: 'absolute', maxWidth: 560, alignSelf: 'center', borderRadius: 36, borderWidth: 1, borderColor: '#FFFFFF', shadowColor: '#504330', shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+  navShell: { position: 'absolute', maxWidth: 560, alignSelf: 'center', borderRadius: 36, borderWidth: 1, borderColor: c.navBorder, shadowColor: isDark ? '#000000' : '#504330', shadowOpacity: isDark ? 0.35 : 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
   navHidden: { opacity: 0, pointerEvents: 'none' },
-  navGlass: { borderRadius: 36, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.92)' },
+  navGlass: { borderRadius: 36, overflow: 'hidden', backgroundColor: c.navGlass },
   navRow: { flexDirection: 'row', alignItems: 'center', padding: 4 },
   navItem: { flex: 1, minWidth: controls.touchSize, height: 62, alignItems: 'center', justifyContent: 'center', gap: 3, position: 'relative' },
   navActiveCircle: { position: 'absolute', backgroundColor: c.mint, alignSelf: 'center' },
-  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 9.5, lineHeight: 13, color: c.text, textAlign: 'center' },
+  navLabel: { width: '100%', fontFamily: fonts.heading, fontSize: 9.5, lineHeight: 13, color: c.muted, textAlign: 'center' },
   navLabelSelected: { color: c.action, fontFamily: fonts.bold },
   pressed: { opacity: controls.pressedOpacity },
-  modalRoot: { flex: 1, justifyContent: 'flex-end' }, scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(17,26,42,0.45)' },
-  sheet: { backgroundColor: c.canvas, borderTopLeftRadius: 32, borderTopRightRadius: 32, width: '100%', maxWidth: 600, alignSelf: 'center', overflow: 'hidden' },
+  modalRoot: { flex: 1, justifyContent: 'flex-end' }, scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(5,9,16,0.65)' },
+  sheet: { backgroundColor: isDark ? c.surfaceRaised : c.canvas, borderTopLeftRadius: 32, borderTopRightRadius: 32, width: '100%', maxWidth: 600, alignSelf: 'center', overflow: 'hidden' },
   sheetHandle: { width: 36, height: 4, backgroundColor: c.divider, borderRadius: 4, alignSelf: 'center', marginTop: 12 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 24, paddingRight: 12, paddingVertical: 8 }, sheetBody: { paddingHorizontal: 24, paddingBottom: 24, gap: 12 },
   detailImage: { width: '100%', height: 200, borderRadius: 24, backgroundColor: c.mint },
@@ -642,7 +662,8 @@ const s = StyleSheet.create({
   previewRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomColor: c.divider, borderBottomWidth: StyleSheet.hairlineWidth },
   accountAction: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottomColor: c.divider, borderBottomWidth: StyleSheet.hairlineWidth },
   accountError: { fontFamily: fonts.body, fontSize: 13, lineHeight: 20, color: c.critical },
-  sheetButton: { backgroundColor: c.action, flexDirection: 'row', gap: 10, minHeight: 52, padding: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 12 }, sheetButtonLabel: { fontFamily: fonts.heading, fontSize: 14, color: 'white' },
+  sheetButton: { backgroundColor: c.action, flexDirection: 'row', gap: 10, minHeight: 52, padding: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 12 }, sheetButtonLabel: { fontFamily: fonts.heading, fontSize: 14, color: isDark ? c.onHeroAction : 'white' },
   sheetButtonDestructive: { backgroundColor: c.critical }, sheetButtonDestructiveLabel: { color: c.onCritical },
   infoLine: { flexDirection: 'row', alignItems: 'center', gap: 12 }, infoPanel: { backgroundColor: c.surface, padding: 16, borderRadius: 18, gap: 8 }, empty: { alignItems: 'center', paddingVertical: 24, gap: 16 },
-});
+  });
+}

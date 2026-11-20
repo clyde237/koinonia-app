@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, Check, ChevronDown, Eye, EyeOff, Camera, UserRound } from 'lucide-react-native';
+import { ArrowLeft, Check, ChevronDown, Eye, EyeOff, Camera, UserRound, Moon, Sun } from 'lucide-react-native';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView,
   StyleSheet, Switch, Text, TextInput, View, type TextInputProps,
@@ -15,6 +15,7 @@ import { CountryPickerModal } from './CountryPickerModal';
 import { PhoneInput } from './PhoneInput';
 import { FiligraneWatermark } from './FiligraneWatermark';
 import { controls } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 
 type Colors = {
   background: string; surface: string; text: string; muted: string;
@@ -32,6 +33,7 @@ const groups = [
 ];
 
 export function AuthFlow({ colors }: Props) {
+  const { isDark, toggleTheme } = useTheme();
   const [screen, setScreen] = useState<Screen>('login');
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -458,8 +460,23 @@ export function AuthFlow({ colors }: Props) {
                   <ArrowLeft size={24} color={colors.text} />
                 </Pressable>
               )}
-              <View style={styles.logoBacking}>
-                <Image source={require('../assets/logo-koinonia.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="Koinonia" />
+              <View style={styles.topLogoRow}>
+                <View style={[styles.logoBacking, isDark && { backgroundColor: 'transparent' }]}>
+                  <Image
+                    source={isDark ? require('../assets/logo-koinonia_w.png') : require('../assets/logo-koinonia.png')}
+                    style={styles.logo}
+                    resizeMode="contain"
+                    accessibilityLabel="Koinonia"
+                  />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isDark ? 'Passer en mode jour' : 'Passer en mode nuit'}
+                  onPress={toggleTheme}
+                  style={styles.themeToggleBtn}
+                >
+                  {isDark ? <Sun size={22} color={colors.action} /> : <Moon size={22} color={colors.text} />}
+                </Pressable>
               </View>
               <Text accessibilityRole="header" textBreakStrategy="balanced" style={[styles.title, heading]}>{screen === 'register' ? 'Créer un compte' : 'Connexion'}</Text>
               <Text style={[styles.intro, body]}>{screen === 'register' ? 'Rejoignez votre communauté de foi.' : 'Connectez-vous à votre compte.'}</Text>
@@ -662,7 +679,9 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32 },
   onboardingContent: { paddingTop: 8, paddingBottom: 8 },
   auth: { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', justifyContent: 'center' },
-  logoBacking: { alignSelf: 'flex-start', backgroundColor: '#F7F5F0', borderRadius: 12, padding: 8, marginBottom: 28 },
+  topLogoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  themeToggleBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24 },
+  logoBacking: { alignSelf: 'flex-start', backgroundColor: '#F7F5F0', borderRadius: 12, padding: 8, marginBottom: 8 },
   logo: { width: 225, height: 44 }, back: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', marginLeft: -12, marginBottom: 8 },
   title: { fontFamily: 'Montserrat_700Bold', fontSize: 27, lineHeight: 35, marginBottom: 10 },
   intro: { fontFamily: 'Poppins_400Regular', fontSize: 15, lineHeight: 23, marginBottom: 20 },

@@ -27,10 +27,12 @@ import {
   Clock3,
   Download,
   FileText,
+  Moon,
   Play,
   Pause,
   Share2,
   Sparkles,
+  Sun,
   X,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -41,7 +43,8 @@ import {
   dailyFeaturedBreakfast,
   BreakfastItem,
 } from '../data/breakfasts';
-import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 
 type Props = {
   onBack?: () => void;
@@ -56,7 +59,7 @@ type Props = {
 /** Flamme Koinonia en filigrane pour les cartes héro et lecteur. */
 function FlameWatermark() {
   return (
-    <View pointerEvents="none" accessible={false} style={s.watermark}>
+    <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 14, right: 14, opacity: 0.2 }}>
       <Svg width={42} height={60} viewBox="200 0 700 1000">
         <Path
           fill="white"
@@ -78,6 +81,8 @@ export function BreakfastsScreen({
   navHeight = 80,
   onDetailOpenChange,
 }: Props) {
+  const { isDark, colors: c, toggleTheme } = useTheme();
+  const s = useMemo(() => createBreakfastStyles(c, isDark), [c, isDark]);
   const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = width < 370;
@@ -491,6 +496,19 @@ export function BreakfastsScreen({
             </View>
 
             <View style={s.headerActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
+                onPress={toggleTheme}
+                style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
+              >
+                {isDark ? (
+                  <Sun size={21} color={c.action} strokeWidth={controls.iconStroke} />
+                ) : (
+                  <Moon size={21} color={c.text} strokeWidth={controls.iconStroke} />
+                )}
+              </Pressable>
+
               {onOpenNotifications && (
                 <Pressable
                   accessibilityRole="button"
@@ -804,7 +822,8 @@ export function BreakfastsScreen({
   );
 }
 
-const s = StyleSheet.create({
+function createBreakfastStyles(c: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: c.canvas,
@@ -849,14 +868,14 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: c.divider,
+    borderColor: isDark ? c.moonlightBorder : c.divider,
   },
   searchContainer: {
     marginBottom: 16,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#EAE6DC',
+    backgroundColor: isDark ? c.surfaceRaised : '#EAE6DC',
     borderRadius: 28,
     padding: 4,
     marginBottom: 16,
@@ -1486,4 +1505,5 @@ const s = StyleSheet.create({
   pressed: {
     opacity: controls.pressedOpacity,
   },
-});
+  });
+}

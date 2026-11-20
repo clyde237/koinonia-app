@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Alert,
   Image,
@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Sun,
   Type,
   User,
   Volume2,
@@ -43,7 +44,8 @@ import {
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { FontSizeMode, BIBLE_FONT_SIZES } from './BibleScreen';
-import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 import { FiligraneWatermark } from './FiligraneWatermark';
 
 export type SettingsScreenProps = {
@@ -99,6 +101,8 @@ export function SettingsScreen({
   onVerifyEmail,
   onOpenNotifications,
 }: SettingsScreenProps) {
+  const { isDark, colors: c, toggleTheme, mode, setMode } = useTheme();
+  const s = useMemo(() => createSettingsStyles(c, isDark), [c, isDark]);
   const { width, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = width < 370;
@@ -157,6 +161,18 @@ export function SettingsScreen({
         </View>
 
         <View style={s.headerRight}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isDark ? "Passer en mode jour" : "Passer en mode nuit"}
+            onPress={toggleTheme}
+            style={({ pressed }) => [s.iconBtn, pressed && s.pressed]}
+          >
+            {isDark ? (
+              <Sun size={21} color={c.action} strokeWidth={controls.iconStroke} />
+            ) : (
+              <Moon size={21} color={c.text} strokeWidth={controls.iconStroke} />
+            )}
+          </Pressable>
           {onOpenNotifications && (
             <Pressable
               accessibilityRole="button"
@@ -496,6 +512,60 @@ export function SettingsScreen({
           </View>
         </View>
 
+        {/* SECTION APPARENCE & THÈME */}
+        <View style={s.sectionBlock}>
+          <Text style={s.sectionHeader}>Apparence & Thème</Text>
+          <View style={[s.sectionCard, s.cardShadow]}>
+            <View style={s.cardRow}>
+              <View style={s.rowIconBox}>
+                {isDark ? (
+                  <Moon size={18} color={c.action} strokeWidth={1.5} />
+                ) : (
+                  <Sun size={18} color={c.action} strokeWidth={1.5} />
+                )}
+              </View>
+              <View style={s.rowContent}>
+                <Text style={s.rowLabel}>Mode d’affichage</Text>
+                <Text style={s.rowValue}>
+                  {mode === 'system' ? 'Système (automatique)' : mode === 'dark' ? 'Mode Nuit (bleu nuit lunaire)' : 'Mode Jour'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={s.cardDivider} />
+
+            <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+              <View style={{ flexDirection: 'row', backgroundColor: isDark ? c.surfaceRaised : '#EAE6DC', borderRadius: 16, padding: 4, gap: 4 }}>
+                {(['system', 'light', 'dark'] as const).map(m => {
+                  const active = mode === m;
+                  const label = m === 'system' ? 'Système' : m === 'light' ? 'Clair' : 'Sombre';
+                  return (
+                    <Pressable
+                      key={m}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Activer le mode ${label}`}
+                      onPress={() => setMode(m)}
+                      style={[
+                        { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+                        active && { backgroundColor: c.action },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          { fontFamily: fonts.medium, fontSize: 13, color: c.muted },
+                          active && { color: isDark ? c.onHeroAction : '#FFFFFF', fontFamily: fonts.heading },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* SECTION 4: SÉCURITÉ DU COMPTE */}
         <View style={s.sectionBlock}>
           <Text style={s.sectionHeader}>Sécurité</Text>
@@ -594,7 +664,8 @@ export function SettingsScreen({
   );
 }
 
-const s = StyleSheet.create({
+function createSettingsStyles(c: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: c.canvas,
@@ -610,7 +681,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: c.divider,
+    borderBottomColor: isDark ? c.moonlightBorder : c.divider,
     backgroundColor: c.canvas,
   },
   headerLeft: {
@@ -1093,4 +1164,5 @@ const s = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
-});
+  });
+}

@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Pressable,
   StyleProp,
@@ -9,7 +9,8 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Search, X } from 'lucide-react-native';
-import { controls, fonts, homeTheme as c } from '../lib/theme';
+import { controls, fonts, type ThemeColors } from '../lib/theme';
+import { useTheme } from '../lib/ThemeContext';
 
 export type SearchBarProps = {
   value: string;
@@ -30,6 +31,8 @@ export function SearchBar({
   autoFocus = false,
   style,
 }: SearchBarProps) {
+  const { isDark, colors: c } = useTheme();
+  const s = useMemo(() => createSearchBarStyles(c, isDark), [c, isDark]);
   const [focused, setFocused] = useState(false);
 
   const handleClear = () => {
@@ -67,7 +70,7 @@ export function SearchBar({
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
-        clearButtonMode="never" // On gère le bouton clear personnalisé pour cohérence multi-plateforme
+        clearButtonMode="never"
         accessibilityLabel={placeholder}
         style={s.input}
       />
@@ -88,57 +91,59 @@ export function SearchBar({
   );
 }
 
-const s = StyleSheet.create({
-  container: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: c.surface,
-    borderRadius: 25,
-    paddingLeft: 14,
-    paddingRight: 1,
-    borderWidth: 2,
-  },
-  containerNormal: {
-    borderColor: c.divider,
-    shadowColor: '#111A2A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  containerFocused: {
-    borderColor: c.action,
-  },
-  iconWrapper: {
-    marginRight: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    minHeight: controls.touchSize,
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: c.text,
-    paddingVertical: 8,
-    paddingRight: 12,
-  },
-  clearButton: {
-    width: controls.touchSize,
-    height: controls.touchSize,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: c.mint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pressed: {
-    opacity: controls.pressedOpacity,
-  },
-});
+function createSearchBarStyles(c: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
+    container: {
+      minHeight: 52,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? c.inputBg : c.surface,
+      borderRadius: 25,
+      paddingLeft: 14,
+      paddingRight: 1,
+      borderWidth: 1.5,
+    },
+    containerNormal: {
+      borderColor: isDark ? c.moonlightBorder : c.divider,
+      shadowColor: isDark ? '#000000' : '#111A2A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.2 : 0.04,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    containerFocused: {
+      borderColor: c.action,
+    },
+    iconWrapper: {
+      marginRight: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    input: {
+      flex: 1,
+      minHeight: controls.touchSize,
+      fontFamily: fonts.body,
+      fontSize: 15,
+      color: c.text,
+      paddingVertical: 8,
+      paddingRight: 12,
+    },
+    clearButton: {
+      width: controls.touchSize,
+      height: controls.touchSize,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    clearCircle: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: c.mint,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    pressed: {
+      opacity: controls.pressedOpacity,
+    },
+  });
+}

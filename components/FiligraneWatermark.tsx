@@ -1,18 +1,22 @@
 import React from 'react';
 import { Image, StyleSheet } from 'react-native';
+import { useTheme } from '../lib/ThemeContext';
 
 type Props = {
   opacity?: number;
 };
 
-export function FiligraneWatermark({ opacity = 0.15 }: Props) {
+export function FiligraneWatermark({ opacity }: Props) {
+  const { isDark } = useTheme();
+  const effectiveOpacity = opacity ?? (isDark ? 0.12 : 0.15);
+
   return (
     <Image
       source={require('../assets/filigrane_green.png')}
       style={[
         StyleSheet.absoluteFill,
         s.watermark,
-        { opacity },
+        { opacity: effectiveOpacity },
       ]}
       resizeMode="cover"
       pointerEvents="none"
