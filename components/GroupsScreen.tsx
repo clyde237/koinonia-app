@@ -50,6 +50,7 @@ type Props = {
   onBack?: () => void;
   onOpenProfile?: () => void;
   onOpenNotifications?: () => void;
+  unreadNotifCount?: number;
   initialGroupId?: string;
   navHeight?: number;
   onDetailOpenChange?: (open: boolean) => void;
@@ -61,6 +62,7 @@ export function GroupsScreen({
   onBack,
   onOpenProfile,
   onOpenNotifications,
+  unreadNotifCount,
   initialGroupId,
   navHeight = 80,
   onDetailOpenChange,
@@ -483,6 +485,7 @@ export function GroupsScreen({
             onBack={onBack}
             backAccessibilityLabel="Retour à l’accueil"
             onOpenNotifications={onOpenNotifications}
+            unreadNotifCount={unreadNotifCount}
           />
 
           {/* Barre de recherche dédiée */}
