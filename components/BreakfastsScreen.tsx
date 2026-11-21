@@ -44,6 +44,9 @@ import {
   dailyFeaturedBreakfast,
   BreakfastItem,
 } from '../data/breakfasts';
+import { BreakfastVideoPlayer } from './BreakfastVideoPlayer';
+import { DownloadModal } from './DownloadModal';
+import { downloadBreakfast, alertDownloadSuccess } from '../lib/breakfast-api';
 import { controls, fonts, type ThemeColors } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
 
@@ -96,12 +99,21 @@ export function BreakfastsScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('Tous');
   const [selectedBreakfast, setSelectedBreakfast] = useState<BreakfastItem | null>(() => {
-    if (initialBreakfastId) {
+    if (initialBreakfastId && initialTab === 'read') {
       return allBreakfasts.find(b => b.id === initialBreakfastId) || null;
     }
     return null;
   });
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playingBreakfast, setPlayingBreakfast] = useState<BreakfastItem>(() => {
+    if (initialBreakfastId) {
+      return allBreakfasts.find(b => b.id === initialBreakfastId) || dailyFeaturedBreakfast;
+    }
+    return dailyFeaturedBreakfast;
+  });
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const isPlaying = isVideoPlaying;
+  const setIsPlaying = setIsVideoPlaying;
+  const [downloadModalItem, setDownloadModalItem] = useState<BreakfastItem | null>(null);
   const [downloadedIds, setDownloadedIds] = useState<Record<string, boolean>>({});
 
   const feedRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -172,15 +184,29 @@ export function BreakfastsScreen({
     }
   };
 
-  const handleDownload = (item: BreakfastItem, format: 'video' | 'pdf') => {
+  const handleDownloadClick = async (item: BreakfastItem, mode: 'watch' | 'read') => {
+    if (mode === 'read') {
+      const key = `${item.id}-pdf`;
+      setDownloadedIds(prev => ({ ...prev, [key]: true }));
+      await downloadBreakfast(item, 'pdf');
+      alertDownloadSuccess(item.title, 'pdf');
+    } else {
+      setDownloadModalItem(item);
+    }
+  };
+
+  const handleSelectDownloadFormat = async (format: 'video' | 'audio') => {
+    if (!downloadModalItem) return;
+    const item = downloadModalItem;
+    setDownloadModalItem(null);
     const key = `${item.id}-${format}`;
     setDownloadedIds(prev => ({ ...prev, [key]: true }));
-    const label = format === 'video' ? 'La vidéo a été téléchargée' : 'Le PDF a été téléchargé';
-    Alert.alert(
-      'Téléchargement terminé',
-      `${label} pour une consultation hors-ligne sur votre appareil.`,
-      [{ text: 'OK' }]
-    );
+    await downloadBreakfast(item, format);
+    alertDownloadSuccess(item.title, format);
+  };
+
+  const handleDownload = (item: BreakfastItem, format: 'video' | 'pdf') => {
+    handleDownloadClick(item, format === 'video' ? 'watch' : 'read');
   };
 
   const openBreakfastDetail = (item: BreakfastItem, mode?: 'watch' | 'read') => {
@@ -265,14 +291,24 @@ export function BreakfastsScreen({
               </Pressable>
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Partager ce Breakfast"
-              onPress={() => handleShare(selectedBreakfast)}
-              style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-            >
-              <Share2 size={21} color={c.text} strokeWidth={1.75} />
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Partager ce Breakfast"
+                onPress={() => handleShare(selectedBreakfast)}
+                style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
+              >
+                <Share2 size={21} color={c.text} strokeWidth={1.75} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Télécharger ce Breakfast"
+                onPress={() => handleDownloadClick(selectedBreakfast, activeMode)}
+                style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
+              >
+                <Download size={21} color={c.text} strokeWidth={1.75} />
+              </Pressable>
+            </View>
           </View>
 
           <ScrollView
@@ -593,100 +629,139 @@ export function BreakfastsScreen({
           {showDailyHero && (
             <View style={s.heroSection}>
               <View style={[s.heroCard, { minHeight: compact ? 260 : 280 }]}>
-                <Image
-                  source={dailyFeaturedBreakfast.image}
-                  resizeMode="cover"
-                  style={[StyleSheet.absoluteFill, s.coverImage]}
-                />
-                <LinearGradient
-                  colors={[
-                    'rgba(17,26,42,0.15)',
-                    'rgba(13,27,29,0.5)',
-                    'rgba(8,23,24,0.95)',
-                  ]}
-                  locations={[0, 0.35, 1]}
-                  style={[StyleSheet.absoluteFill, s.coverImage]}
-                />
-                <FlameWatermark />
-
-                <View style={s.heroContent}>
-                  <View style={s.heroTopRow}>
-                    <View style={s.dailyBadge}>
-                      <Text style={s.dailyBadgeText}>Breakfast du jour</Text>
+                {activeMode === 'watch' && isVideoPlaying ? (
+                  <View style={{ position: 'relative', width: '100%' }}>
+                    <BreakfastVideoPlayer
+                      breakfast={playingBreakfast}
+                      autoPlay={true}
+                      onTogglePlay={setIsVideoPlaying}
+                    />
+                    <View style={{ position: 'absolute', top: 14, right: 14, flexDirection: 'row', gap: 8, zIndex: 10 }}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Partager ce Breakfast"
+                        onPress={() => handleShare(playingBreakfast)}
+                        style={({ pressed }) => [s.secondaryHeroAction, pressed && s.pressed]}
+                      >
+                        <Share2 size={18} color="#FFFFFF" strokeWidth={1.75} />
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Télécharger ce Breakfast"
+                        onPress={() => handleDownloadClick(playingBreakfast, 'watch')}
+                        style={({ pressed }) => [s.secondaryHeroAction, pressed && s.pressed]}
+                      >
+                        <Download size={18} color="#FFFFFF" strokeWidth={1.75} />
+                      </Pressable>
                     </View>
-                    <View style={s.heroDuration}>
-                      <Clock3 size={15} color="#FFFFFF" strokeWidth={1.5} />
-                      <Text style={s.heroDurationText}>
-                        {activeMode === 'watch'
-                          ? dailyFeaturedBreakfast.duration
-                          : dailyFeaturedBreakfast.readTime}
+                  </View>
+                ) : (
+                  <>
+                    <Image
+                      source={activeMode === 'watch' ? playingBreakfast.image : dailyFeaturedBreakfast.image}
+                      resizeMode="cover"
+                      style={[StyleSheet.absoluteFill, s.coverImage]}
+                    />
+                    <LinearGradient
+                      colors={[
+                        'rgba(17,26,42,0.15)',
+                        'rgba(13,27,29,0.5)',
+                        'rgba(8,23,24,0.95)',
+                      ]}
+                      locations={[0, 0.35, 1]}
+                      style={[StyleSheet.absoluteFill, s.coverImage]}
+                    />
+                    <FlameWatermark />
+
+                    <View style={s.heroContent}>
+                      <View style={s.heroTopRow}>
+                        <View style={s.dailyBadge}>
+                          <Text style={s.dailyBadgeText}>Breakfast du jour</Text>
+                        </View>
+                        <View style={s.heroDuration}>
+                          <Clock3 size={15} color="#FFFFFF" strokeWidth={1.5} />
+                          <Text style={s.heroDurationText}>
+                            {activeMode === 'watch'
+                              ? playingBreakfast.duration
+                              : dailyFeaturedBreakfast.readTime}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={s.heroSpacer} />
+
+                      <Text
+                        accessibilityRole="header"
+                        textBreakStrategy="balanced"
+                        lineBreakStrategyIOS="push-out"
+                        style={[s.heroTitle, compact && { fontSize: 24, lineHeight: 30 }]}
+                      >
+                        {activeMode === 'watch' ? playingBreakfast.title : dailyFeaturedBreakfast.title}
                       </Text>
+
+                      <Text style={s.heroVerse}>
+                        {(activeMode === 'watch' ? playingBreakfast : dailyFeaturedBreakfast).scriptureRef} · {(activeMode === 'watch' ? playingBreakfast : dailyFeaturedBreakfast).author}
+                      </Text>
+
+                      {/* Actions de la carte du jour adaptées à l'onglet sélectionné */}
+                      <View style={s.heroActions}>
+                        {activeMode === 'watch' ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Regarder la vidéo"
+                            onPress={() => setIsVideoPlaying(true)}
+                            style={({ pressed }) => [s.primaryHeroAction, pressed && s.pressed]}
+                          >
+                            <LinearGradient
+                              colors={['#54DDD0', '#00A99D']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={s.heroGradientBtn}
+                            >
+                              <Play size={18} color="#0B2929" fill="#0B2929" />
+                              <Text style={s.primaryHeroLabel}>Regarder la vidéo</Text>
+                            </LinearGradient>
+                          </Pressable>
+                        ) : (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Lire la méditation du jour"
+                            onPress={() => openBreakfastDetail(dailyFeaturedBreakfast, 'read')}
+                            style={({ pressed }) => [s.primaryHeroAction, pressed && s.pressed]}
+                          >
+                            <LinearGradient
+                              colors={['#54DDD0', '#00A99D']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={s.heroGradientBtn}
+                            >
+                              <BookOpen size={18} color="#0B2929" />
+                              <Text style={s.primaryHeroLabel}>Lire la méditation</Text>
+                            </LinearGradient>
+                          </Pressable>
+                        )}
+
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Partager la méditation"
+                          onPress={() => handleShare(activeMode === 'watch' ? playingBreakfast : dailyFeaturedBreakfast)}
+                          style={({ pressed }) => [s.secondaryHeroAction, pressed && s.pressed]}
+                        >
+                          <Share2 size={19} color="#FFFFFF" strokeWidth={1.75} />
+                        </Pressable>
+
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Télécharger la méditation"
+                          onPress={() => handleDownloadClick(activeMode === 'watch' ? playingBreakfast : dailyFeaturedBreakfast, activeMode)}
+                          style={({ pressed }) => [s.secondaryHeroAction, pressed && s.pressed]}
+                        >
+                          <Download size={19} color="#FFFFFF" strokeWidth={1.75} />
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-
-                  <View style={s.heroSpacer} />
-
-                  <Text
-                    accessibilityRole="header"
-                    textBreakStrategy="balanced"
-                    lineBreakStrategyIOS="push-out"
-                    style={[s.heroTitle, compact && { fontSize: 24, lineHeight: 30 }]}
-                  >
-                    {dailyFeaturedBreakfast.title}
-                  </Text>
-
-                  <Text style={s.heroVerse}>
-                    {dailyFeaturedBreakfast.scriptureRef} · {dailyFeaturedBreakfast.author}
-                  </Text>
-
-                  {/* Actions de la carte du jour adaptées à l'onglet sélectionné */}
-                  <View style={s.heroActions}>
-                    {activeMode === 'watch' ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Regarder le Breakfast du jour"
-                        onPress={() => openBreakfastDetail(dailyFeaturedBreakfast, 'watch')}
-                        style={({ pressed }) => [s.primaryHeroAction, pressed && s.pressed]}
-                      >
-                        <LinearGradient
-                          colors={['#54DDD0', '#00A99D']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={s.heroGradientBtn}
-                        >
-                          <Play size={18} color="#0B2929" fill="#0B2929" />
-                          <Text style={s.primaryHeroLabel}>Regarder la vidéo</Text>
-                        </LinearGradient>
-                      </Pressable>
-                    ) : (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Lire la méditation du jour"
-                        onPress={() => openBreakfastDetail(dailyFeaturedBreakfast, 'read')}
-                        style={({ pressed }) => [s.primaryHeroAction, pressed && s.pressed]}
-                      >
-                        <LinearGradient
-                          colors={['#54DDD0', '#00A99D']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={s.heroGradientBtn}
-                        >
-                          <BookOpen size={18} color="#0B2929" />
-                          <Text style={s.primaryHeroLabel}>Lire la méditation</Text>
-                        </LinearGradient>
-                      </Pressable>
-                    )}
-
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Partager la méditation du jour"
-                      onPress={() => handleShare(dailyFeaturedBreakfast)}
-                      style={({ pressed }) => [s.secondaryHeroAction, pressed && s.pressed]}
-                    >
-                      <Share2 size={19} color="#FFFFFF" strokeWidth={1.75} />
-                    </Pressable>
-                  </View>
-                </View>
+                  </>
+                )}
               </View>
             </View>
           )}
@@ -741,7 +816,15 @@ export function BreakfastsScreen({
                   key={item.id}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.title}, ${item.date}, ${item.duration}`}
-                  onPress={() => openBreakfastDetail(item, activeMode)}
+                  onPress={() => {
+                    if (activeMode === 'watch') {
+                      setPlayingBreakfast(item);
+                      setIsVideoPlaying(true);
+                      feedRef.current?.scrollTo({ y: 0, animated: true });
+                    } else {
+                      openBreakfastDetail(item, 'read');
+                    }
+                  }}
                   style={({ pressed }) => [s.cardItem, pressed && s.pressed]}
                 >
                   {/* Miniature avec badge vidéo ou lecture */}
@@ -785,6 +868,13 @@ export function BreakfastsScreen({
           </View>
         </ScrollView>
       </View>
+
+      <DownloadModal
+        visible={downloadModalItem !== null}
+        onClose={() => setDownloadModalItem(null)}
+        breakfast={downloadModalItem}
+        onSelectOption={handleSelectDownloadFormat}
+      />
     </View>
   );
 }
