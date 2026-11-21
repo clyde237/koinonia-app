@@ -48,8 +48,9 @@
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",
     "test:bible": "node --test --test-isolation=none tests/bible.test.cjs",
+    "test:daily-verse": "node --test --test-isolation=none tests/daily-verse.test.cjs",
     "test:theme": "node --test --test-isolation=none tests/theme.test.cjs",
-    "test": "npm run test:bible && npm run test:theme"
+    "test": "npm run test:bible && npm run test:daily-verse && npm run test:theme"
   },
   "private": true
 }

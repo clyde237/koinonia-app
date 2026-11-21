@@ -18,6 +18,12 @@ import Svg, { Path } from 'react-native-svg';
 import { dailyBreakfast, homeCommunities, homeImages, recentBreakfasts, type Breakfast } from '../data/home';
 import { DAILY_BIBLE_PASSAGE, type BiblePassage } from '../data/bible';
 import { loadBibleFontSize, saveBibleFontSize } from '../lib/bible-library';
+import {
+  DailyVerse,
+  fetchDailyVerse,
+  formatShareDailyVerse,
+  getOfflineDailyVerse,
+} from '../lib/daily-verse';
 import { controls, fonts, type ThemeColors } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
 import { BreakfastsScreen } from './BreakfastsScreen';
@@ -114,6 +120,7 @@ export function HomeScreen(props: Props) {
   const unreadNotifCount = notifications.filter(n => !n.read).length;
   const [reduceTransparency, setReduceTransparency] = useState(false);
   const [navHeight, setNavHeight] = useState(80);
+  const [dailyVerse, setDailyVerse] = useState<DailyVerse>(() => getOfflineDailyVerse());
   const feed = useRef<ComponentRef<typeof ScrollView>>(null);
   const blurTarget = useRef<ComponentRef<typeof View> | null>(null);
   const firstName = props.name.trim().split(/\s+/)[0] || 'à vous';
@@ -130,6 +137,16 @@ export function HomeScreen(props: Props) {
     }).catch(() => {});
     return () => { active = false; };
   }, [props.readerId]);
+
+  useEffect(() => {
+    let active = true;
+    fetchDailyVerse().then(verse => {
+      if (active && verse) {
+        setDailyVerse(verse);
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const changeBibleFontSize = (size: FontSizeMode) => {
     bibleFontEdited.current = true;
@@ -200,7 +217,10 @@ export function HomeScreen(props: Props) {
 
   const shareVerse = async () => {
     try {
-      await Share.share({ message: '« Demeurez en moi, et je demeurerai en vous. »\nJean 15.4\n\nKoinonia · Communion avec le Saint-Esprit' });
+      await Share.share({
+        message: formatShareDailyVerse(dailyVerse),
+        title: `Verset du jour : ${dailyVerse.bookName} ${dailyVerse.chapter}.${dailyVerse.number}`,
+      });
     } catch {
       Alert.alert('Partage indisponible', 'Veuillez réessayer dans un instant.');
     }
@@ -299,15 +319,15 @@ export function HomeScreen(props: Props) {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Demeurez en moi, et je demeurerai en vous. Jean 15, verset 4."
-                accessibilityHint="Ouvre Jean 15, verset 4 dans la Bible"
-                onPress={() => openBible(DAILY_BIBLE_PASSAGE)}
+                accessibilityLabel={`${dailyVerse.text}. ${dailyVerse.bookName} ${dailyVerse.chapter}, verset ${dailyVerse.number}.`}
+                accessibilityHint={`Ouvre ${dailyVerse.bookName} ${dailyVerse.chapter}, verset ${dailyVerse.number} dans la Bible`}
+                onPress={() => openBible({ bookId: dailyVerse.bookId, chapter: dailyVerse.chapter, verse: dailyVerse.number })}
                 style={({ pressed }) => [s.verseBody, pressed && s.pressed]}
               >
                 <Text accessible={false} style={s.quote}>“</Text>
                 <View style={s.grow}>
-                  <Text textBreakStrategy="highQuality" lineBreakStrategyIOS="push-out" style={s.verse}>Demeurez en moi, et je demeurerai en vous.</Text>
-                  <Text style={s.reference}>Jean 15.4 · Lire le chapitre →</Text>
+                  <Text textBreakStrategy="highQuality" lineBreakStrategyIOS="push-out" style={s.verse}>{dailyVerse.text}</Text>
+                  <Text style={s.reference}>{dailyVerse.bookName} {dailyVerse.chapter}.{dailyVerse.number} · Lire le chapitre →</Text>
                 </View>
               </Pressable>
             </View>
