@@ -12,10 +12,11 @@ import { BlurTargetView, BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft, Bell, BookOpen, CalendarDays, ChevronRight, CirclePlay,
-  Clock3, Home, MapPin, Moon, Play, Settings, Share2, Sun, Users, X,
+  Clock3, Download, Home, MapPin, Moon, Pause, Play, Settings, Share2, Sun, Users, X,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { dailyBreakfast, homeCommunities, homeImages, recentBreakfasts, type Breakfast } from '../data/home';
+import { allBreakfasts, type BreakfastItem } from '../data/breakfasts';
 import { DAILY_BIBLE_PASSAGE, type BiblePassage } from '../data/bible';
 import { loadBibleFontSize, saveBibleFontSize } from '../lib/bible-library';
 import {
@@ -24,6 +25,9 @@ import {
   formatShareDailyVerse,
   getOfflineDailyVerse,
 } from '../lib/daily-verse';
+import { downloadBreakfast, alertDownloadSuccess } from '../lib/breakfast-api';
+import { BreakfastVideoPlayer } from './BreakfastVideoPlayer';
+import { DownloadModal } from './DownloadModal';
 import { controls, fonts, type ThemeColors } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
 import { BreakfastsScreen } from './BreakfastsScreen';
@@ -121,6 +125,9 @@ export function HomeScreen(props: Props) {
   const [reduceTransparency, setReduceTransparency] = useState(false);
   const [navHeight, setNavHeight] = useState(80);
   const [dailyVerse, setDailyVerse] = useState<DailyVerse>(() => getOfflineDailyVerse());
+  const [isVideoPlayingOnHero, setIsVideoPlayingOnHero] = useState(true);
+  const [downloadModalItem, setDownloadModalItem] = useState<BreakfastItem | null>(null);
+  const fullDailyBreakfast = useMemo(() => allBreakfasts.find(b => b.id === dailyBreakfast.id) || allBreakfasts[0], []);
   const feed = useRef<ComponentRef<typeof ScrollView>>(null);
   const blurTarget = useRef<ComponentRef<typeof View> | null>(null);
   const firstName = props.name.trim().split(/\s+/)[0] || 'à vous';
@@ -225,6 +232,25 @@ export function HomeScreen(props: Props) {
       Alert.alert('Partage indisponible', 'Veuillez réessayer dans un instant.');
     }
   };
+
+  const shareDailyBreakfast = async () => {
+    try {
+      await Share.share({
+        title: fullDailyBreakfast.title,
+        message: `« ${fullDailyBreakfast.title} »\n${fullDailyBreakfast.scriptureRef}\n\n${fullDailyBreakfast.summary}\n\nKoinonia · Méditation matinale quotidienne`,
+      });
+    } catch {
+      Alert.alert('Partage indisponible', 'Veuillez réessayer dans un instant.');
+    }
+  };
+
+  const handleSelectDownloadFormat = async (format: 'video' | 'audio') => {
+    if (!downloadModalItem) return;
+    const item = downloadModalItem;
+    setDownloadModalItem(null);
+    await downloadBreakfast(item, format);
+    alertDownloadSuccess(item.title, format);
+  };
   const openBreakfast = (item: Breakfast, mode: 'read' | 'watch') => {
     setSelectedBreakfastId(item.id);
     setBreakfastInitialTab(mode);
@@ -287,29 +313,88 @@ export function HomeScreen(props: Props) {
             </View>
 
             <View style={[s.hero, { minHeight: compact ? 280 : 296 }]}>
-              <Image source={homeImages.dawn} resizeMode="cover" style={[StyleSheet.absoluteFill, s.coverImage]} />
-              <LinearGradient colors={['rgba(17,26,42,0.12)', 'rgba(13,27,29,0.45)', 'rgba(8,23,24,0.96)']} locations={[0, 0.3, 1]} style={[StyleSheet.absoluteFill, s.coverImage]} />
-              <FlameWatermark />
-              <View style={s.heroContent}>
-                <View style={s.dailyBadge}><Text style={s.dailyBadgeText}>Breakfast du jour</Text></View>
-                <View style={s.heroSpacer} />
-                <Text accessibilityRole="header" textBreakStrategy="balanced" lineBreakStrategyIOS="push-out" style={[s.heroTitle, compact && s.heroTitleCompact]}>
-                  {dailyBreakfast.title}
-                </Text>
-                <View style={s.duration}><Clock3 size={17} color="white" strokeWidth={1.5} /><Text style={s.heroMeta}>{dailyBreakfast.duration}</Text></View>
-                <View style={[s.heroActions, stackHeroActions && s.stack]}>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Regarder ${dailyBreakfast.title}`} onPress={() => openBreakfast(dailyBreakfast, 'watch')} style={({ pressed }) => [s.primaryAction, stackHeroActions && s.stackedAction, pressed && s.pressed]}>
-                    <LinearGradient colors={['#54DDD0', '#00A99D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.watchButton}>
-                      <Play size={20} color={c.onHeroAction} fill={c.onHeroAction} strokeWidth={controls.iconStroke} style={s.playIcon} />
-                      <Text style={s.watchLabel}>Regarder</Text>
-                    </LinearGradient>
-                  </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Lire ${dailyBreakfast.title}`} onPress={() => openBreakfast(dailyBreakfast, 'read')} style={({ pressed }) => [s.readButton, stackHeroActions && s.stackedAction, pressed && s.pressed]}>
-                    <BookOpen size={20} color={c.onHero} strokeWidth={controls.iconStroke} />
-                    <Text style={s.readLabel}>Lire</Text>
-                  </Pressable>
+              {isVideoPlayingOnHero ? (
+                <View style={s.heroVideoWrapper}>
+                  <BreakfastVideoPlayer
+                    breakfast={fullDailyBreakfast}
+                    autoPlay={true}
+                    onTogglePlay={setIsVideoPlayingOnHero}
+                    style={s.heroVideoPlayer}
+                  />
+                  <View style={s.heroVideoOverlayActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Partager le Breakfast du jour"
+                      onPress={shareDailyBreakfast}
+                      style={({ pressed }) => [s.heroSquareAction, pressed && s.pressed]}
+                    >
+                      <Share2 size={18} color="#FFFFFF" strokeWidth={1.75} />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Télécharger le Breakfast du jour"
+                      onPress={() => setDownloadModalItem(fullDailyBreakfast)}
+                      style={({ pressed }) => [s.heroSquareAction, pressed && s.pressed]}
+                    >
+                      <Download size={18} color="#FFFFFF" strokeWidth={1.75} />
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
+              ) : (
+                <>
+                  <Image source={homeImages.dawn} resizeMode="cover" style={[StyleSheet.absoluteFill, s.coverImage]} />
+                  <LinearGradient colors={['rgba(17,26,42,0.12)', 'rgba(13,27,29,0.45)', 'rgba(8,23,24,0.96)']} locations={[0, 0.3, 1]} style={[StyleSheet.absoluteFill, s.coverImage]} />
+                  <FlameWatermark />
+                  <View style={s.heroContent}>
+                    <View style={s.dailyBadge}><Text style={s.dailyBadgeText}>Breakfast du jour</Text></View>
+                    <View style={s.heroSpacer} />
+                    <Text accessibilityRole="header" textBreakStrategy="balanced" lineBreakStrategyIOS="push-out" style={[s.heroTitle, compact && s.heroTitleCompact]}>
+                      {dailyBreakfast.title}
+                    </Text>
+                    <View style={s.duration}><Clock3 size={17} color="white" strokeWidth={1.5} /><Text style={s.heroMeta}>{dailyBreakfast.duration}</Text></View>
+                    <View style={[s.heroActions, stackHeroActions && s.stack]}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Regarder ${dailyBreakfast.title}`}
+                        onPress={() => setIsVideoPlayingOnHero(true)}
+                        style={({ pressed }) => [s.primaryAction, stackHeroActions && s.stackedAction, pressed && s.pressed]}
+                      >
+                        <LinearGradient colors={['#54DDD0', '#00A99D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.watchButton}>
+                          <Play size={20} color={c.onHeroAction} fill={c.onHeroAction} strokeWidth={controls.iconStroke} style={s.playIcon} />
+                          <Text style={s.watchLabel}>Regarder</Text>
+                        </LinearGradient>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Lire ${dailyBreakfast.title}`}
+                        onPress={() => openBreakfast(dailyBreakfast, 'read')}
+                        style={({ pressed }) => [s.readButton, stackHeroActions && s.stackedAction, pressed && s.pressed]}
+                      >
+                        <BookOpen size={20} color={c.onHero} strokeWidth={controls.iconStroke} />
+                        <Text style={s.readLabel}>Lire</Text>
+                      </Pressable>
+                      <View style={s.heroSquareRow}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Partager le Breakfast du jour"
+                          onPress={shareDailyBreakfast}
+                          style={({ pressed }) => [s.heroSquareAction, pressed && s.pressed]}
+                        >
+                          <Share2 size={19} color="#FFFFFF" strokeWidth={1.75} />
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Télécharger le Breakfast du jour"
+                          onPress={() => setDownloadModalItem(fullDailyBreakfast)}
+                          style={({ pressed }) => [s.heroSquareAction, pressed && s.pressed]}
+                        >
+                          <Download size={19} color="#FFFFFF" strokeWidth={1.75} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              )}
             </View>
 
             <View style={[s.verseCard, s.softShadow]}>
@@ -545,6 +630,13 @@ export function HomeScreen(props: Props) {
           setCurrentScreen('settings');
         }}
       />
+
+      <DownloadModal
+        visible={downloadModalItem !== null}
+        onClose={() => setDownloadModalItem(null)}
+        breakfast={downloadModalItem}
+        onSelectOption={handleSelectDownloadFormat}
+      />
     </View>
   );
 }
@@ -570,6 +662,11 @@ function createStyles(c: ThemeColors, isDark: boolean) {
   watermark: { position: 'absolute', top: 16, right: 18, opacity: 0.14 },
   heroTitle: { fontFamily: fonts.bold, fontSize: 30, lineHeight: 36, letterSpacing: -0.6, color: c.onHero, marginBottom: 12 },
   heroTitleCompact: { fontSize: 27, lineHeight: 34 },
+  heroVideoWrapper: { position: 'relative', width: '100%', minHeight: 220, borderRadius: 32, overflow: 'hidden' },
+  heroVideoPlayer: { borderRadius: 32 },
+  heroVideoOverlayActions: { position: 'absolute', top: 16, right: 16, flexDirection: 'row', gap: 8, zIndex: 10 },
+  heroSquareRow: { flexDirection: 'row', gap: 8 },
+  heroSquareAction: { width: 48, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center' },
   duration: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }, heroMeta: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: c.onHero },
   heroActions: { flexDirection: 'row', gap: 10 }, stack: { flexDirection: 'column' },
   primaryAction: { flex: 1.25, borderRadius: 12, overflow: 'hidden', minHeight: 52 },
